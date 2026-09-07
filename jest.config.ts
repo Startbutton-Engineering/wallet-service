@@ -12,11 +12,34 @@ const paths = tsconfig?.compilerOptions?.paths ?? {};
 
 const config: Config = {
   moduleFileExtensions: ['js', 'json', 'ts'],
-  rootDir: '.',
-  testRegex: '.*\\.spec\\.ts$',
+  roots: ['<rootDir>/src', '<rootDir>/test'],
+  testRegex: '.*\\.(spec|e2e-spec)\\.ts$',
   transform: {
-    '^.+\\.(t|j)s$': 'ts-jest',
+    // Our own sources: SWC emits design:* metadata for Nest's DI.
+    '^.+\\.ts$': [
+      '@swc/jest',
+      {
+        jsc: {
+          parser: { syntax: 'typescript', decorators: true },
+          transform: { legacyDecorator: true, decoratorMetadata: true },
+          target: 'es2022',
+        },
+        module: { type: 'commonjs' },
+      },
+    ],
+    // Nest 12 and friends are ESM-only; SWC rewrites them to CommonJS so Jest
+    // can require them without --experimental-vm-modules.
+    '^.+\\.js$': [
+      '@swc/jest',
+      {
+        jsc: { parser: { syntax: 'ecmascript' }, target: 'es2022' },
+        module: { type: 'commonjs' },
+      },
+    ],
   },
+  // Empty so the ESM packages under node_modules are not skipped.
+  transformIgnorePatterns: [],
+  setupFiles: ['reflect-metadata'],
   moduleNameMapper: pathsToModuleNameMapper(paths, { prefix: '<rootDir>/' }),
   collectCoverageFrom: [
     'src/**/*.(t|j)s',
@@ -25,6 +48,8 @@ const config: Config = {
   ],
   coverageDirectory: './coverage',
   testEnvironment: 'node',
+  globalSetup: '<rootDir>/test/global-setup.ts',
+  globalTeardown: '<rootDir>/test/global-teardown.ts'
 };
 
 export default config;
