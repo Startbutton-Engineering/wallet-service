@@ -1,6 +1,7 @@
 import { Injectable, OnModuleInit } from "@nestjs/common";
 import { DatabaseService } from "../database/database.service";
 import { Currency, CurrencyType, DEFAULT_CURRENCIES } from "./currency";
+import { AppError } from "../common/errors";
 
 const COLLECTION = 'currencies'
 
@@ -32,5 +33,11 @@ export class CurrencyRegistryService implements OnModuleInit {
 
   async get(code: string): Promise<Currency | null> {
     return this.collection().findOne({ code }, { projection: { _id: 0 } });
+  }
+
+  async require(code: string): Promise<Currency> {
+    const currency = await this.get(code);
+    if (!currency) throw AppError.invalidCurrency(code);
+    return currency;
   }
 }
