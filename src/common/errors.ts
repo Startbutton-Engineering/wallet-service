@@ -15,6 +15,7 @@ export enum ErrorCode {
   // System
   INTERNAL_ERROR = 'INTERNAL_ERROR',
   SERVICE_UNAVAILABLE = 'SERVICE_UNAVAILABLE',
+  CONCURRENCY_RETRY_EXHAUSTED = 'CONCURRENCY_RETRY_EXHAUSTED'
 }
 
 export interface ErrorResponse {
@@ -88,4 +89,15 @@ export class AppError extends Error {
   static notFound(message: string, details?: Record<string, unknown>): AppError {
     return new AppError(ErrorCode.NOT_FOUND, HttpStatus.NOT_FOUND, message, false, details)
   }
+
+  static retryExhausted(): AppError {
+    return new AppError(
+      ErrorCode.CONCURRENCY_RETRY_EXHAUSTED,
+      HttpStatus.SERVICE_UNAVAILABLE,
+      'Concurrent modification retry limit exceeded; retry the request',
+      true
+    )
+  }
 }
+
+export class OccConflict extends Error {}

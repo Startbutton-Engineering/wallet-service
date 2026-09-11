@@ -96,7 +96,12 @@ export class AccountsRepository implements OnModuleInit {
     return ( await this.collection().countDocuments({ _id: id }, { limit: 1 }) ) > 0
   }
 
-  async balanceBreakdown(tenantId: string, ownerId: string, currency: string): Promise<WalletBalance | null> {
+  async balanceBreakdown(
+    tenantId: string,
+    ownerId: string,
+    currency: string,
+    session?: ClientSession
+  ): Promise<WalletBalance | null> {
     const docs = await this.collection()
       .find({ tenantId, ownerId, currency, kind: 'user' })
       .toArray();
