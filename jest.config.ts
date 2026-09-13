@@ -48,6 +48,10 @@ const config: Config = {
   ],
   coverageDirectory: './coverage',
   testEnvironment: 'node',
+  // The e2e specs share a single-node mongodb-memory-server replica set; running
+  // multiple Nest app instances against it concurrently causes flaky transaction
+  // failures, so tests run serially.
+  maxWorkers: 1,
   globalSetup: '<rootDir>/test/global-setup.ts',
   globalTeardown: '<rootDir>/test/global-teardown.ts'
 };

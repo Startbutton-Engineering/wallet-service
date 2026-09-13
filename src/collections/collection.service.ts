@@ -1,16 +1,17 @@
 import { Injectable } from "@nestjs/common";
 import { LedgerService, PostPostingContext, PrePostContext } from "../ledger/ledger.service";
 import { CurrencyRegistryService } from "../currency/currency-registry.service";
-import { balanceToJson, WalletBalance } from "../wallets/dto";
+import { balanceToJson } from "../wallets/dto";
 import { OutboxEventType, OutboxEventI, PostingI } from "../ledger/types";
 import { accountRef } from "../accounts/account";
 import { creditWithDebtPaydown } from "./credit-policy";
+import { AppError } from "../common/errors";
 
 export interface CollectionResult {
   operationId: string;
   entryId: string;
   collectionId: string;
-  balance: WalletBalance
+  balance: ReturnType<typeof balanceToJson>
 }
 
 interface CollectionParams {
@@ -30,18 +31,39 @@ export class CollectionsService {
   ){}
 
   async collect(params: CollectionParams): Promise<CollectionResult> {
-    const {ownerId, currency, amount} = params;
-    return this.post(params, 'collection.receive', OutboxEventType.COLLECTION_RECEIVED, async() => ({
-      postings: [
-        { account: accountRef.collection(currency), direction: 'debit', amount},
-        { account: accountRef.user(ownerId, currency, 'held-inflow'), direction: 'credit', amount}
-      ]
-    }))
+    const {ownerId, currency, amount, collectionId} = params;
+    return this.post(params, 'collection.receive', OutboxEventType.COLLECTION_RECEIVED, async(ctx) => {
+      const alreadyReceived = await ctx.referenceNetAmount(
+        collectionId,
+        accountRef.user(ownerId, currency, 'held-inflow'),
+        ['collection.receive']
+      );
+      if (alreadyReceived !== 0n) throw AppError.collectionAlreadyReceived(collectionId);
+
+      return {
+        postings: [
+          { account: accountRef.collection(currency), direction: 'debit', amount},
+          { account: accountRef.user(ownerId, currency, 'held-inflow'), direction: 'credit', amount}
+        ]
+      }
+    })
   }
 
   async settled(params: CollectionParams): Promise<CollectionResult> {
-    const { ownerId, currency, amount } = params;
+    const { ownerId, currency, amount, collectionId } = params;
     return this.post(params, 'collection.settle', OutboxEventType.COLLECTION_SETTLED, async(ctx) => {
+      const outstanding = await ctx.referenceNetAmount(
+        collectionId,
+        accountRef.user(ownerId, currency, 'held-inflow')
+      );
+      if (amount > outstanding) {
+        throw AppError.collectionOverSettlement({
+          collectionId,
+          requested: amount.toString(),
+          outstanding: outstanding.toString()
+        });
+      }
+
       const current = await ctx.readBalance(ownerId, currency);
       const { postings, settled, amountToCredit } = creditWithDebtPaydown({
         ownerId,
@@ -94,7 +116,7 @@ export class CollectionsService {
             operationId: post.operationId,
             entryId: post.entryIds[0],
             collectionId,
-            balance: await post.accountBalance(ownerId, currency)
+            balance: balanceToJson(await post.accountBalance(ownerId, currency))
           }),
           buildEvent: async(post) => this.events(
             eventType,

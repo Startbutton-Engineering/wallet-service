@@ -4,7 +4,7 @@ import { EntryDoc, EntryI, OutboxEventI, PostingDoc, signedDelta } from "./types
 import { WalletBalance } from "../wallets/dto";
 import { IdempotencyRepository } from "./idempotency.repository";
 import { AppError, OccConflict } from "../common/errors";
-import { ClientSession, MongoServerError } from "mongodb";
+import { ClientSession, Filter, MongoServerError } from "mongodb";
 import { randomUUID } from "crypto";
 import { AccountsRepository } from "../accounts/accounts.repository";
 import { AccountDoc, AccountRef, systemAccountId, userAccountId } from "../accounts/account";
@@ -15,6 +15,7 @@ const OCC_MAX_RETRIES = 8;
 
 export interface PrePostContext {
   readBalance(ownerId: string, currency: string): Promise<WalletBalance>;
+  referenceNetAmount(reference: string, account: AccountRef, operationTypes?: string[]): Promise<bigint>;
   session: ClientSession
 }
 
@@ -80,6 +81,7 @@ export class LedgerService implements OnModuleInit {
           },
           { readConcern: { level: 'snapshot'}, writeConcern: { w: 'majority' }}
         )
+        return response;
       } catch (err) {
         await session.abortTransaction().catch(() => undefined);
         if (err instanceof OccConflict || isTransient(err)) {
@@ -122,6 +124,16 @@ export class LedgerService implements OnModuleInit {
         await this.accountsRepo.ensureUserWallet(tenantId, ownerId, currency, session);
         const accountBalance = await this.accountsRepo.balanceBreakdown(tenantId, ownerId, currency, session);
         return accountBalance!
+      },
+      referenceNetAmount: async (reference, account, operationTypes) => {
+        const accountId = this.resolveId(tenantId, account);
+        const filter: Filter<PostingDoc> = { tenantId, reference, accountId };
+        if (operationTypes) filter.operationType = { $in: operationTypes };
+        const postings = await this.db
+          .collection<PostingDoc>('postings')
+          .find(filter, { session })
+          .toArray();
+        return postings.reduce((sum, p) => sum + signedDelta(p.direction, fromDecimal128(p.amount)), 0n);
       }
     }
 
