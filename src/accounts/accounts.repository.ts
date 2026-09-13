@@ -103,7 +103,7 @@ export class AccountsRepository implements OnModuleInit {
     session?: ClientSession
   ): Promise<WalletBalance | null> {
     const docs = await this.collection()
-      .find({ tenantId, ownerId, currency, kind: 'user' })
+      .find({ tenantId, ownerId, currency, kind: 'user' }, { session })
       .toArray();
     if (docs.length === 0) return null;
 

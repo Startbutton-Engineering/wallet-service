@@ -1,20 +1,21 @@
 import { Injectable, OnModuleInit } from "@nestjs/common";
 import { DatabaseService } from "../database/database.service";
-import { AccountRef, EntryDoc, EntryI, OutboxEventI, PostingDoc, signedDelta } from "./types";
+import { EntryDoc, EntryI, OutboxEventI, PostingDoc, signedDelta } from "./types";
 import { WalletBalance } from "../wallets/dto";
 import { IdempotencyRepository } from "./idempotency.repository";
 import { AppError, OccConflict } from "../common/errors";
 import { ClientSession, MongoServerError } from "mongodb";
 import { randomUUID } from "crypto";
 import { AccountsRepository } from "../accounts/accounts.repository";
-import { AccountDoc, systemAccountId, userAccountId } from "../accounts/account";
+import { AccountDoc, AccountRef, systemAccountId, userAccountId } from "../accounts/account";
 import { fromDecimal128, toDecimal128 } from "../common/money";
 import { OutboxRepository } from "./outbox.repository";
 
 const OCC_MAX_RETRIES = 8;
 
 export interface PrePostContext {
-  readBalance(ownerId: string, currency: string): Promise<WalletBalance>
+  readBalance(ownerId: string, currency: string): Promise<WalletBalance>;
+  session: ClientSession
 }
 
 export interface PostPostingContext {
@@ -27,8 +28,9 @@ export interface LedgerOperation<T> {
   entries: EntryI[];
   guardNegative?: AccountRef[];
   reversalOf?: string;
+  sideEffect?: (post: PostPostingContext) => Promise<void>;
   buildResponse: (post: PostPostingContext) => T | Promise<T>;
-  buildEvent: (post: PostPostingContext) => OutboxEventI | Promise<OutboxEventI>;
+  buildEvent: (post: PostPostingContext) => OutboxEventI | OutboxEventI [] | Promise<OutboxEventI | OutboxEventI[]>;
 }
 
 export interface PostArgs<T> {
@@ -65,7 +67,6 @@ export class LedgerService implements OnModuleInit {
   async post<T>(args: PostArgs<T>): Promise<T> {
     const { tenantId, idempotencyKey, operationType } = args;
     const requestHash = IdempotencyRepository.hash(operationType, args.requestPayload);
-
     const existing = await this.idempotency.find(tenantId, idempotencyKey);
     if (existing) return this.replay<T>(existing, requestHash, idempotencyKey);
 
@@ -116,6 +117,7 @@ export class LedgerService implements OnModuleInit {
     const operationId = randomUUID();
 
     const PrePostContext: PrePostContext = {
+      session,
       readBalance: async(ownerId, currency) => {
         await this.accountsRepo.ensureUserWallet(tenantId, ownerId, currency, session);
         const accountBalance = await this.accountsRepo.balanceBreakdown(tenantId, ownerId, currency, session);
@@ -174,7 +176,18 @@ export class LedgerService implements OnModuleInit {
         })
       }
 
-
+      entryDocs.push({
+        _id: entryId,
+        tenantId,
+        operationId,
+        currency: entry.currency,
+        operationType: args.operationType,
+        postingIds,
+        reference: args.reference ?? null,
+        actor: args.actor ?? null,
+        reversalOf: legderOperation.reversalOf ?? null,
+        createdAt: new Date(),
+      })
     }
 
     // Overdraft guard: some accounts must not end negative
@@ -230,9 +243,12 @@ export class LedgerService implements OnModuleInit {
       }
     }
 
+    if (legderOperation.sideEffect) await legderOperation.sideEffect(post);
     const response = await legderOperation.buildResponse(post);
-    const event = await legderOperation.buildEvent(post);
-    await this.outboxRepo.write(tenantId, operationId, event, session);
+    const events = await legderOperation.buildEvent(post);
+    for (const event of Array.isArray(events) ? events : [events]){
+      await this.outboxRepo.write(tenantId, operationId, event, session);
+    }
     await this.idempotency.insert(
       {
         _id: IdempotencyRepository.id(tenantId, args.idempotencyKey),

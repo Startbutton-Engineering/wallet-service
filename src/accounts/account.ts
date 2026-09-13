@@ -37,9 +37,35 @@ export function systemAccountId(
 
 /** System account names */
 export const System = {
-  funding: 'external:funding',
+  collection: 'external:collection',
   payout: 'external:payout',
   openingBalance: 'external:opening-balance',
   fx: (currency: string) => `fx:${currency}`,
   suspenseRefunds: 'suspense:refunds'
 } as const;
+
+/** A reference to an account */
+export type AccountRef = 
+  | { kind: 'user'; ownerId: string; currency: string; accountType: UserAccountTpe }
+  | { kind: 'system'; name: string; currency: string }
+
+export const accountRef = {
+  userAvailable: (ownerId: string, currency: string): AccountRef => ({
+    kind: 'user',
+    ownerId, currency, accountType: 'available'
+  }),
+  user: (ownerId: string, currency: string, accountType: UserAccountTpe): AccountRef => ({
+    kind: 'user',
+    ownerId,
+    currency,
+    accountType
+  }),
+  system: (name: string, currency: string): AccountRef => ({
+    kind: 'system', name, currency
+  }),
+  collection: (currency: string): AccountRef => ({
+    kind: 'system',
+    name: System.collection,
+    currency
+  })
+}

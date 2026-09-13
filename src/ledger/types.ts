@@ -1,12 +1,7 @@
 import { Decimal128 } from "mongodb";
-import { UserAccountTpe } from "../accounts/account";
+import { AccountRef, UserAccountTpe } from "../accounts/account";
 
 export type Direction = 'debit' | 'credit';
-
-/** A reference to an account */
-export type AccountRef = 
-  | { kind: 'user'; ownerId: string; currency: string; accountType: UserAccountTpe }
-  | { kind: 'system'; name: string; currency: string }
 
 export interface PostingI {
   account: AccountRef;
@@ -84,4 +79,9 @@ export interface OutboxEventI {
   type: string;
   schemaVersion?: number;
   payload: Record<string, unknown>;
+}
+
+export enum OutboxEventType {
+  COLLECTION_RECEIVED = 'CollectionReceived',
+  COLLECTION_SETTLED = 'CollectionSettled'
 }
