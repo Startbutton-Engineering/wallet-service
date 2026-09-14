@@ -13,6 +13,11 @@ export interface PostingI {
 export interface EntryI {
   currency: string;
   postings: PostingI[];
+  /** Overrides PostArgs.reference for this entry only — lets one post() call tag several
+   * entries with different references (e.g. one per collectionId in a batch settle). */
+  reference?: string;
+  /** Overrides PostArgs.operationType for this entry only. */
+  operationType?: string;
   metadata?: Record<string, unknown>;
 }
 

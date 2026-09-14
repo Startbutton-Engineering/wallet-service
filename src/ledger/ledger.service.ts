@@ -153,6 +153,8 @@ export class LedgerService implements OnModuleInit {
     for (const entry of legderOperation.entries) {
       const entryId = randomUUID();
       const postingIds: string[] = [];
+      const reference = entry.reference ?? args.reference ?? null;
+      const operationType = entry.operationType ?? args.operationType;
       for (const posting of entry.postings) {
         const accountId = this.resolveId(tenantId, posting.account);
         const doc = accountsById.get(accountId)!;
@@ -181,8 +183,8 @@ export class LedgerService implements OnModuleInit {
           amount: toDecimal128(posting.amount),
           balanceAfter: isUser ? toDecimal128(state.balance) : null,
           sequence: isUser ? state.sequence : null,
-          operationType: args.operationType,
-          reference: args.reference ?? null,
+          operationType,
+          reference,
           actor: args.actor ?? null,
           createdAt: new Date(),
         })
@@ -193,9 +195,9 @@ export class LedgerService implements OnModuleInit {
         tenantId,
         operationId,
         currency: entry.currency,
-        operationType: args.operationType,
+        operationType,
         postingIds,
-        reference: args.reference ?? null,
+        reference,
         actor: args.actor ?? null,
         reversalOf: legderOperation.reversalOf ?? null,
         createdAt: new Date(),
