@@ -44,6 +44,30 @@ $ npm run start:dev
 $ npm run start:prod
 ```
 
+## Docker
+
+Build the production image:
+
+```bash
+docker build -t wallet-service .
+```
+
+Run it with a MongoDB connection reachable from the container:
+
+```bash
+docker run --rm -p 3003:3003 \
+  -e MONGO_PATH=mongodb://host.docker.internal:27017 \
+  -e DB_NAME=ledger \
+  -e API_KEYS=replace-with-your-api-key \
+  wallet-service
+```
+
+`host.docker.internal` connects to the host on Docker Desktop. On Linux Docker
+Engine, add `--add-host=host.docker.internal:host-gateway`, or use your MongoDB
+server's hostname. The service requires MongoDB to be available at startup.
+You can also supply configuration with `--env-file .env`; environment files are
+excluded from the image. If you change `HTTP_PORT`, adjust the port mapping too.
+
 ## Run tests
 
 ```bash

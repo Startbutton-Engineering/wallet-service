@@ -1,0 +1,87 @@
+name: Docker Build & ECR Deploy.
+
+on:
+  push:
+    branches:
+      - dev
+      - qa
+      
+permissions:
+  contents: write
+  id-token: write
+
+env:
+  AWS_REGION: us-east-2
+  ECR_REPOSITORY: "040768515770.dkr.ecr.us-east-2.amazonaws.com"
+  DOCKER_IMAGE: wallet-service
+
+jobs:
+  build-and-push:
+    name: Build and Push Docker Image to ECR
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name }}
+
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.OIDC_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Extract short SHA
+        id: sha
+        run: |
+          echo "short_sha=$(echo $GITHUB_SHA | cut -c1-4)" >> $GITHUB_OUTPUT
+        
+
+      - name: Sanitize branch name
+        id: branch
+        run: |
+          echo "sanitized=$(echo '${GITHUB_REF_NAME}' | tr '/' '-')" >> $GITHUB_OUTPUT
+
+      - name: Generate semantic version (main branch only)
+        if: github.ref_name == 'main'
+        id: semver
+        uses: paulhatch/semantic-version@v5.3.0
+        with:
+          tag_prefix: "v"
+          bump_each_commit: false
+          major_pattern: "^feat!|BREAKING CHANGE:"
+          minor_pattern: "^feat"
+          patch_pattern: "^fix"
+          format: "v${major}.${minor}.${patch}"
+          namespace: main
+      
+      - name: Set image tag
+        id: tag
+        run: |
+          if [[ "${GITHUB_REF_NAME}" == "main" ]]; then
+            echo "image_tag=${{ steps.semver.outputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "image_tag=${{ steps.branch.outputs.sanitized }}-${{ steps.sha.outputs.short_sha }}" >> $GITHUB_OUTPUT
+          fi
+               
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker Image
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          tags: ${{ env.ECR_REPOSITORY }}/${{ env.DOCKER_IMAGE }}:${{ steps.tag.outputs.image_tag }}
+          context: .
+          cache-from: type=gha
+          cache-to:  type=gha,mode=max         
+          secrets: |
+            GIT_AUTH_TOKEN=${{ secrets.STBTN_GITHUB_TOKEN }}
+            
