@@ -81,6 +81,10 @@ export class AppError extends Error {
     )
   }
 
+  static invalidCurrency(currency: string): AppError {
+    return new AppError(ErrorCode.INVALID_CURRENCY, HttpStatus.BAD_REQUEST, `Unknown currency: ${currency}`, false)
+  }
+
   static notFound(message: string, details?: Record<string, unknown>): AppError {
     return new AppError(ErrorCode.NOT_FOUND, HttpStatus.NOT_FOUND, message, false, details)
   }
