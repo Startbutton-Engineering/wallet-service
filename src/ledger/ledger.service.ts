@@ -19,6 +19,9 @@ const OCC_MAX_RETRIES = 8;
 export interface PrePostContext {
   readBalance(ownerId: string, currency: string, walletType: WalletType): Promise<WalletBalance>;
   referenceNetAmount(reference: string, account: AccountRef, operationTypes?: string[]): Promise<bigint>;
+  /** Ids of entries already posted under this reference for one operationType, oldest first.
+   * Lets a reversing operation point LedgerOperation.reversalOf at the entry it undoes. */
+  referenceEntryIds(reference: string, operationType: string): Promise<string[]>;
   session: ClientSession
 }
 
@@ -134,6 +137,14 @@ export class LedgerService implements OnModuleInit {
           .lean<PostingDoc[]>()
           .exec();
         return postings.reduce((sum, p) => sum + signedDelta(p.direction, fromDecimal128(p.amount)), 0n);
+      },
+      referenceEntryIds: async (reference, operationType) => {
+        const entries = await this.entries
+          .find({ tenantId, reference, operationType }, null, { session })
+          .sort({ createdAt: 1 })
+          .lean<EntryDoc[]>()
+          .exec();
+        return entries.map((e) => e._id);
       }
     }
 

@@ -14,6 +14,13 @@ export enum ErrorCode {
   NOT_FOUND = 'NOT_FOUND',
   COLLECTION_ALREADY_RECEIVED = 'COLLECTION_ALREADY_RECEIVED',
   COLLECTION_OVER_SETTLEMENT = 'COLLECTION_OVER_SETTLEMENT',
+  PAYOUT_ALREADY_INITIATED = 'PAYOUT_ALREADY_INITIATED',
+  PAYOUT_NOT_INITIATED = 'PAYOUT_NOT_INITIATED',
+  PAYOUT_ALREADY_RESOLVED = 'PAYOUT_ALREADY_RESOLVED',
+  PAYOUT_NOT_SUCCESSFUL = 'PAYOUT_NOT_SUCCESSFUL',
+  PAYOUT_NOT_REVERSED = 'PAYOUT_NOT_REVERSED',
+  PAYOUT_AMOUNT_MISMATCH = 'PAYOUT_AMOUNT_MISMATCH',
+  WALLET_TRANSFER_ALREADY_APPLIED = 'WALLET_TRANSFER_ALREADY_APPLIED',
   // System
   INTERNAL_ERROR = 'INTERNAL_ERROR',
   SERVICE_UNAVAILABLE = 'SERVICE_UNAVAILABLE',
@@ -49,7 +56,7 @@ export class AppError extends Error {
   }
 
   static validation(message: string, details?: Record<string, unknown>): AppError {
-    return new AppError(ErrorCode.VALIDATION_FAILED, HttpStatus.BAD_REQUEST, message)
+    return new AppError(ErrorCode.VALIDATION_FAILED, HttpStatus.BAD_REQUEST, message, false, details)
   }
 
   static unauthenticated(message = 'Missing or invalid API key'): AppError {
@@ -109,6 +116,76 @@ export class AppError extends Error {
       'Settlement amount exceeds the outstanding amount for this collection.',
       false,
       details
+    )
+  }
+
+  static payoutAlreadyInitiated(payoutId: string): AppError {
+    return new AppError(
+      ErrorCode.PAYOUT_ALREADY_INITIATED,
+      HttpStatus.CONFLICT,
+      `Payout ${payoutId} has already been initiated.`,
+      false,
+      { payoutId }
+    )
+  }
+
+  static payoutNotInitiated(payoutId: string): AppError {
+    return new AppError(
+      ErrorCode.PAYOUT_NOT_INITIATED,
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      `Payout ${payoutId} was never initiated.`,
+      false,
+      { payoutId }
+    )
+  }
+
+  static payoutAlreadyResolved(details: Record<string, unknown>): AppError {
+    return new AppError(
+      ErrorCode.PAYOUT_ALREADY_RESOLVED,
+      HttpStatus.CONFLICT,
+      'This payout has already succeeded or failed; its funds are no longer held.',
+      false,
+      details
+    )
+  }
+
+  static payoutNotSuccessful(details: Record<string, unknown>): AppError {
+    return new AppError(
+      ErrorCode.PAYOUT_NOT_SUCCESSFUL,
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      'Only a payout that has been paid out can be reversed.',
+      false,
+      details
+    )
+  }
+
+  static payoutNotReversed(details: Record<string, unknown>): AppError {
+    return new AppError(
+      ErrorCode.PAYOUT_NOT_REVERSED,
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      'This payout has no returned funds to re-debit; it must have failed or been reversed first.',
+      false,
+      details
+    )
+  }
+
+  static payoutAmountMismatch(details: Record<string, unknown>): AppError {
+    return new AppError(
+      ErrorCode.PAYOUT_AMOUNT_MISMATCH,
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      'Payout amount does not match the outstanding amount for this payout.',
+      false,
+      details
+    )
+  }
+
+  static walletTransferAlreadyApplied(transferId: string): AppError {
+    return new AppError(
+      ErrorCode.WALLET_TRANSFER_ALREADY_APPLIED,
+      HttpStatus.CONFLICT,
+      `Wallet transfer ${transferId} has already been applied.`,
+      false,
+      { transferId }
     )
   }
 

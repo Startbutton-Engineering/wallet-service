@@ -9,6 +9,7 @@ import { AccountsModule } from './accounts/accounts.module';
 import { WalletsModule } from './wallets/wallets.module';
 import { LedgerModule } from './ledger/ledger.module';
 import { CollectionsModule } from './collections/collections.module';
+import { PayoutsModule } from './payouts/payouts.module';
 
 @Module({
   imports: [
@@ -17,7 +18,8 @@ import { CollectionsModule } from './collections/collections.module';
     AccountsModule,
     LedgerModule,
     WalletsModule,
-    CollectionsModule
+    CollectionsModule,
+    PayoutsModule
   ],
   controllers: [HealthController],
   providers: [

@@ -43,6 +43,23 @@ describe('Wallets', () => {
       .send(body);
   }
 
+  function transfer(body: Record<string, unknown>, idempotencyKey = randomUUID()) {
+    return request(ctx.app.getHttpServer())
+      .post('/wallets/transfer')
+      .set('x-api-key', TEST_API_KEY)
+      .set('idempotency-key', idempotencyKey)
+      .send(body);
+  }
+
+  /** Collect + settle, leaving `amount` in the owner's collection wallet. */
+  async function givenCollectionBalance(amount: string): Promise<string> {
+    const ownerId = randomUUID();
+    const collectionId = randomUUID();
+    await collect({ collectionId, ownerId, currency: 'NGN', amount });
+    await settle({ collectionId, ownerId, currency: 'NGN', amount });
+    return ownerId;
+  }
+
   it('provisions disjoint account sets for the collection and payout wallets', async () => {
     const ownerId = randomUUID();
 
@@ -144,5 +161,123 @@ describe('Wallets', () => {
     expect(typeof res.body.message).toBe('string');
     expect(res.body.data.code).toBe('NOT_FOUND');
     expect(res.body.data.retryable).toBe(false);
+  });
+
+  describe('transfer', () => {
+    it('moves available funds from the collection wallet to the payout wallet', async () => {
+      const ownerId = await givenCollectionBalance('5000');
+
+      const res = await transfer({
+        transferId: randomUUID(), ownerId, currency: 'NGN', amount: '2000',
+        from: 'collection', to: 'payout',
+      });
+
+      expect(res.status).toBe(201);
+      expect(res.body.data.from).toBe('collection');
+      expect(res.body.data.to).toBe('payout');
+      expect(res.body.data.source.available).toBe('3000');
+      expect(res.body.data.destination.available).toBe('2000');
+    });
+
+    it('moves them back again, releasing unused payout float', async () => {
+      const ownerId = await givenCollectionBalance('5000');
+      await transfer({
+        transferId: randomUUID(), ownerId, currency: 'NGN', amount: '2000',
+        from: 'collection', to: 'payout',
+      });
+
+      const res = await transfer({
+        transferId: randomUUID(), ownerId, currency: 'NGN', amount: '1200',
+        from: 'payout', to: 'collection',
+      });
+
+      expect(res.status).toBe(201);
+      expect(res.body.data.source.available).toBe('800');
+      expect(res.body.data.destination.available).toBe('4200');
+    });
+
+    it('leaves the owner\'s total across both wallets unchanged', async () => {
+      const ownerId = await givenCollectionBalance('5000');
+      await transfer({
+        transferId: randomUUID(), ownerId, currency: 'NGN', amount: '2000',
+        from: 'collection', to: 'payout',
+      });
+      await transfer({
+        transferId: randomUUID(), ownerId, currency: 'NGN', amount: '750',
+        from: 'payout', to: 'collection',
+      });
+
+      const res = await getBalance(ownerId, 'NGN');
+      const total = res.body.data.reduce((sum: bigint, w: { ledger: string }) => sum + BigInt(w.ledger), 0n);
+      expect(total).toBe(5000n);
+    });
+
+    it('rejects a transfer larger than the source wallet holds', async () => {
+      const ownerId = await givenCollectionBalance('1000');
+
+      const res = await transfer({
+        transferId: randomUUID(), ownerId, currency: 'NGN', amount: '1001',
+        from: 'collection', to: 'payout',
+      });
+
+      expect(res.status).toBe(422);
+      expect(res.body.data.code).toBe('INSUFFICIENT_FUNDS');
+    });
+
+    it('rejects applying the same transferId twice', async () => {
+      const ownerId = await givenCollectionBalance('5000');
+      const transferId = randomUUID();
+      const body = {
+        transferId, ownerId, currency: 'NGN', amount: '1000',
+        from: 'collection', to: 'payout',
+      };
+
+      const first = await transfer(body);
+      expect(first.status).toBe(201);
+
+      const second = await transfer(body);
+      expect(second.status).toBe(409);
+      expect(second.body.data.code).toBe('WALLET_TRANSFER_ALREADY_APPLIED');
+    });
+
+    it('replays the stored result for a repeated idempotency key', async () => {
+      const ownerId = await givenCollectionBalance('5000');
+      const key = randomUUID();
+      const body = {
+        transferId: randomUUID(), ownerId, currency: 'NGN', amount: '1000',
+        from: 'collection', to: 'payout',
+      };
+
+      const first = await transfer(body, key);
+      const second = await transfer(body, key);
+
+      expect(second.status).toBe(201);
+      expect(second.body.data).toEqual(first.body.data);
+      expect(second.body.data.source.available).toBe('4000');
+    });
+
+    it('rejects a transfer to the same wallet type', async () => {
+      const ownerId = await givenCollectionBalance('5000');
+
+      const res = await transfer({
+        transferId: randomUUID(), ownerId, currency: 'NGN', amount: '1000',
+        from: 'collection', to: 'collection',
+      });
+
+      expect(res.status).toBe(400);
+      expect(res.body.data.code).toBe('VALIDATION_FAILED');
+    });
+
+    it('rejects an unknown wallet type', async () => {
+      const ownerId = await givenCollectionBalance('5000');
+
+      const res = await transfer({
+        transferId: randomUUID(), ownerId, currency: 'NGN', amount: '1000',
+        from: 'collection', to: 'savings',
+      });
+
+      expect(res.status).toBe(400);
+      expect(res.body.data.code).toBe('VALIDATION_FAILED');
+    });
   });
 })

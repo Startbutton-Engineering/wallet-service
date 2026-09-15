@@ -89,5 +89,11 @@ export interface OutboxEventI {
 
 export enum OutboxEventType {
   COLLECTION_RECEIVED = 'CollectionReceived',
-  COLLECTION_SETTLED = 'CollectionSettled'
+  COLLECTION_SETTLED = 'CollectionSettled',
+  PAYOUT_INITIATED = 'PayoutInitiated',
+  PAYOUT_SUCCEEDED = 'PayoutSucceeded',
+  PAYOUT_FAILED = 'PayoutFailed',
+  PAYOUT_REVERSED = 'PayoutReversed',
+  PAYOUT_REVERSE_FAILED = 'PayoutReverseFailed',
+  WALLET_TRANSFERRED = 'WalletTransferred'
 }
