@@ -1,4 +1,4 @@
-import { Decimal128 } from "mongodb";
+import { Types } from "mongoose";
 import { AccountRef, UserAccountTpe } from "../accounts/account";
 
 export type Direction = 'debit' | 'credit';
@@ -34,8 +34,8 @@ export interface PostingDoc {
   ownerId: string | null;
   currency: string;
   direction: Direction;
-  amount: Decimal128;
-  balanceAfter: Decimal128 | null;
+  amount: Types.Decimal128;
+  balanceAfter: Types.Decimal128 | null;
   sequence: number | null;
   operationType: string;
   reference: string | null;

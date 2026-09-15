@@ -1,22 +1,16 @@
 import { Injectable, OnModuleInit } from "@nestjs/common";
-import { DatabaseService } from "../database/database.service";
+import { InjectModel } from "@nestjs/mongoose";
+import { ClientSession, Model } from "mongoose";
 import { OutboxDoc, OutboxEventI } from "./types";
-import { ClientSession } from "mongodb";
+import { Outbox } from "./schemas/outbox.schema";
 import { randomUUID } from "crypto";
-
-const COLLECTION = 'outbox';
 
 @Injectable()
 export class OutboxRepository implements OnModuleInit {
-  constructor(private readonly db: DatabaseService) {}
-
-  private col() {
-    return this.db.collection<OutboxDoc>(COLLECTION);
-  }
+  constructor(@InjectModel(Outbox.name) private readonly model: Model<OutboxDoc>) {}
 
   async onModuleInit(): Promise<void> {
-    await this.db.db.createCollection(COLLECTION).catch(() => undefined);
-    await this.col().createIndex({ published: 1, createdAt: 1 });
+    await this.model.createCollection().catch(() => undefined);
   }
 
   async write(
@@ -37,7 +31,7 @@ export class OutboxRepository implements OnModuleInit {
       publishedAt: null,
       createdAt: new Date()
     }
-    await this.col().insertOne(doc, { session });
+    await this.model.create([doc], { session });
     return doc;
   }
 }

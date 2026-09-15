@@ -1,5 +1,7 @@
-import { Decimal128 } from "mongodb";
+import { Types } from "mongoose";
 import { fromDecimal128, money, toBigInt, toDecimal128 } from "../../../src/common/money"
+
+const { Decimal128 } = Types;
 
 describe('Money', () => {
   it('stores amounts as bigint minor units', () => {

@@ -1,44 +1,31 @@
-import { Inject, Injectable, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
-import { ClientSession, Collection, Db, Document, MongoClient } from "mongodb";
-import type { AppConfig } from "../config";
-import { CONFIG } from "../config";
+import { Injectable } from "@nestjs/common";
+import { InjectConnection } from "@nestjs/mongoose";
+import { ClientSession, Connection, mongo } from "mongoose";
 
 @Injectable()
-export class DatabaseService implements OnModuleInit, OnModuleDestroy {
-  private client!: MongoClient;
-  private database!: Db;
+export class DatabaseService {
+  constructor(@InjectConnection() private readonly connection: Connection) {}
 
-  constructor(@Inject(CONFIG) private readonly config: AppConfig) {}
-
-  async onModuleInit(): Promise<void> {
-    await this.connect()
+  get db(): mongo.Db {
+    const db = this.connection.db;
+    if (!db) throw new Error('Mongoose connection is not established yet');
+    return db;
   }
 
-  async onModuleDestroy(): Promise<void> {
-    await this.client?.close();
+  get conn(): Connection {
+    return this.connection;
   }
 
-  async connect(): Promise<void> {
-    if (this.client) return
-    this.client = new MongoClient(this.config.mongoUri);
-    await this.client.connect();
-    this.database = this.client.db(this.config.dbName);
+  collection<T extends mongo.Document = mongo.Document>(name: string): mongo.Collection<T> {
+    return this.db.collection<T>(name);
   }
 
-  get db(): Db {
-    return this.database;
-  }
-
-  collection<T extends Document = Document>(name: string): Collection<T> {
-    return this.database.collection<T>(name)
-  }
-
-  startSession(): ClientSession {
-    return this.client.startSession();
+  startSession(): Promise<ClientSession> {
+    return this.connection.startSession();
   }
 
   async ping(): Promise<boolean> {
-    const res = await this.database.command({ ping: 1 });
+    const res = await this.db.command({ ping: 1 });
     return res.ok === 1;
   }
 }

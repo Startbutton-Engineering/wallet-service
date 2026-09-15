@@ -1,4 +1,4 @@
-import { Decimal128 } from "mongodb";
+import { Types } from "mongoose";
 
 export interface Money {
   readonly amount: bigint;
@@ -18,11 +18,11 @@ export function toBigInt(value: bigint | number | string): bigint {
   return BigInt(value)
 }
 
-export function toDecimal128(amount: bigint): Decimal128 {
-  return Decimal128.fromString(amount.toString());
+export function toDecimal128(amount: bigint): Types.Decimal128 {
+  return Types.Decimal128.fromString(amount.toString());
 }
 
-export function fromDecimal128(value: Decimal128): bigint {
+export function fromDecimal128(value: Types.Decimal128): bigint {
   const str = value.toString();
   if(str.includes('.') || str.includes('E') || str.includes('e')) {
     throw new Error(`Ledger Decimal128 amount is not an integer minor-unit value: ${str}`)

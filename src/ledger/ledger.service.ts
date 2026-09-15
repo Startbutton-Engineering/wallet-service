@@ -1,13 +1,16 @@
 import { Injectable, OnModuleInit } from "@nestjs/common";
-import { DatabaseService } from "../database/database.service";
+import { InjectModel } from "@nestjs/mongoose";
+import { ClientSession, Model, QueryFilter, mongo } from "mongoose";
 import { EntryDoc, EntryI, OutboxEventI, PostingDoc, signedDelta } from "./types";
 import { WalletBalance } from "../wallets/dto";
 import { IdempotencyRepository } from "./idempotency.repository";
 import { AppError, OccConflict } from "../common/errors";
-import { ClientSession, Filter, MongoServerError } from "mongodb";
 import { randomUUID } from "crypto";
 import { AccountsRepository } from "../accounts/accounts.repository";
 import { AccountDoc, AccountRef, systemAccountId, userAccountId } from "../accounts/account";
+import { Account } from "../accounts/account.schema";
+import { Posting } from "./schemas/posting.schema";
+import { Entry } from "./schemas/entry.schema";
 import { fromDecimal128, toDecimal128 } from "../common/money";
 import { OutboxRepository } from "./outbox.repository";
 
@@ -47,22 +50,17 @@ export interface PostArgs<T> {
 @Injectable()
 export class LedgerService implements OnModuleInit {
   constructor(
-    private readonly db: DatabaseService,
+    @InjectModel(Posting.name) private readonly postings: Model<PostingDoc>,
+    @InjectModel(Entry.name) private readonly entries: Model<EntryDoc>,
+    @InjectModel(Account.name) private readonly accounts: Model<AccountDoc>,
     private readonly idempotency: IdempotencyRepository,
     private readonly accountsRepo: AccountsRepository,
     private readonly outboxRepo: OutboxRepository
   ) {}
 
   async onModuleInit(): Promise<void> {
-    await this.db.db.createCollection('postings').catch(() => undefined);
-    await this.db.db.createCollection('entries').catch(() => undefined);
-    const postings = this.db.collection<PostingDoc>('postings');
-    await postings.createIndex({ accountId: 1, sequence: 1 });
-    await postings.createIndex({ operationId: 1 });
-    await postings.createIndex({ tenantId: 1, reference: 1 });
-    const entries = this.db.collection<EntryDoc>('entries');
-    await entries.createIndex({ operationId: 1 });
-    await entries.createIndex({ tenantId: 1, reference: 1 })
+    await this.postings.createCollection().catch(() => undefined);
+    await this.entries.createCollection().catch(() => undefined);
   }
 
   async post<T>(args: PostArgs<T>): Promise<T> {
@@ -72,7 +70,7 @@ export class LedgerService implements OnModuleInit {
     if (existing) return this.replay<T>(existing, requestHash, idempotencyKey);
 
     for (let attempt = 0; attempt < OCC_MAX_RETRIES; attempt++) {
-      const session = this.db.startSession();
+      const session = await this.accounts.db.startSession();
       try {
         let response!: T;
         await session.withTransaction(
@@ -98,7 +96,7 @@ export class LedgerService implements OnModuleInit {
         await session.endSession();
       }
     }
-    throw AppError.retryExhausted
+    throw AppError.retryExhausted()
   }
 
   private replay<T>(
@@ -127,12 +125,12 @@ export class LedgerService implements OnModuleInit {
       },
       referenceNetAmount: async (reference, account, operationTypes) => {
         const accountId = this.resolveId(tenantId, account);
-        const filter: Filter<PostingDoc> = { tenantId, reference, accountId };
+        const filter: QueryFilter<PostingDoc> = { tenantId, reference, accountId };
         if (operationTypes) filter.operationType = { $in: operationTypes };
-        const postings = await this.db
-          .collection<PostingDoc>('postings')
-          .find(filter, { session })
-          .toArray();
+        const postings = await this.postings
+          .find(filter, null, { session })
+          .lean<PostingDoc[]>()
+          .exec();
         return postings.reduce((sum, p) => sum + signedDelta(p.direction, fromDecimal128(p.amount)), 0n);
       }
     }
@@ -223,7 +221,7 @@ export class LedgerService implements OnModuleInit {
     for (const [accountId, state] of finalBalances) {
       const doc = accountsById.get(accountId)!;
       if (doc.kind === 'user') {
-        const res = await this.db.collection<AccountDoc>('accounts').updateOne(
+        const res = await this.accounts.updateOne(
           { _id: accountId, version: doc.version },
           {
             $set: {
@@ -237,7 +235,7 @@ export class LedgerService implements OnModuleInit {
         );
         if (res.matchedCount === 0) throw new OccConflict();
       } else {
-        await this.db.collection<AccountDoc>('accounts').updateOne(
+        await this.accounts.updateOne(
           { _id: accountId },
           { $set: { balance: toDecimal128(state.balance), updatedAt: new Date() } },
           { session }
@@ -245,8 +243,8 @@ export class LedgerService implements OnModuleInit {
       }
     }
 
-    await this.db.collection<PostingDoc>('postings').insertMany(postingDocs, { session });
-    await this.db.collection<EntryDoc>('entries').insertMany(entryDocs, { session });
+    await this.postings.insertMany(postingDocs, { session });
+    await this.entries.insertMany(entryDocs, { session });
 
     const post: PostPostingContext = {
       operationId,
@@ -330,17 +328,17 @@ export class LedgerService implements OnModuleInit {
     session: ClientSession,
   ): Promise<Map<string, AccountDoc>> {
     const ids = [...new Set(refs.map((r) => this.resolveId(tenantId, r)))];
-    const docs = await this.db
-      .collection<AccountDoc>('accounts')
-      .find({ _id: { $in: ids }}, { session })
-      .toArray();
+    const docs = await this.accounts
+      .find({ _id: { $in: ids }}, null, { session })
+      .lean<AccountDoc[]>()
+      .exec();
     return new Map(docs.map((d) => [d._id, d]))
   }
 }
 
 function isTransient(err: unknown): boolean {
   return (
-    err instanceof MongoServerError &&
+    err instanceof mongo.MongoServerError &&
     (err.hasErrorLabel?.('TransientTransactionError') ||
       err.hasErrorLabel?.('UnknownTransactionCommitResult') ||
       err.codeName === 'WriteConflict'
@@ -349,5 +347,5 @@ function isTransient(err: unknown): boolean {
 }
 
 function isDuplicateKey(err: unknown): boolean {
-  return err instanceof MongoServerError && err.code === 11000;
+  return err instanceof mongo.MongoServerError && err.code === 11000;
 }
