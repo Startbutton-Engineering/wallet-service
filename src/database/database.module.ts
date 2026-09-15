@@ -1,13 +1,24 @@
 import { Global, Module } from "@nestjs/common";
-import { CONFIG, loadConfig } from "../config";
+import { MongooseModule } from "@nestjs/mongoose";
+import type { AppConfig } from "../config";
+import { CONFIG } from "../config";
+import { ConfigModule } from "../config/config.module";
 import { DatabaseService } from "./database.service";
 
 @Global()
 @Module({
-  providers: [
-    { provide: CONFIG, useFactory: () => loadConfig() },
-    DatabaseService
+  imports: [
+    ConfigModule,
+    MongooseModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [CONFIG],
+      useFactory: (config: AppConfig) => ({
+        uri: config.mongoUri,
+        dbName: config.dbName
+      })
+    })
   ],
-  exports: [DatabaseService, CONFIG]
+  providers: [DatabaseService],
+  exports: [DatabaseService, ConfigModule, MongooseModule]
 })
 export class DatabaseModule {}

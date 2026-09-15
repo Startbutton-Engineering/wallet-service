@@ -1,38 +1,35 @@
 import { Injectable, OnModuleInit } from "@nestjs/common";
-import { DatabaseService } from "../database/database.service";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model } from "mongoose";
 import { Currency, CurrencyType, DEFAULT_CURRENCIES } from "./currency";
+import { CurrencyModel } from "./currency.schema";
 import { AppError } from "../common/errors";
-
-const COLLECTION = 'currencies'
 
 @Injectable()
 export class CurrencyRegistryService implements OnModuleInit {
-  constructor(private readonly db: DatabaseService) {}
-
-  private collection() {
-    return this.db.collection<Currency>(COLLECTION)
-  }
+  constructor(@InjectModel(CurrencyModel.name) private readonly model: Model<Currency>) {}
 
   async onModuleInit(): Promise<void> {
-    await this.collection().createIndex({ code: 1 }, { unique: true });
-    const count = await this.collection().countDocuments();
+    await this.model.createCollection().catch(() => undefined);
+    await this.model.syncIndexes().catch(() => undefined);
+    const count = await this.model.estimatedDocumentCount();
     if (count === 0) {
-      await this.collection().insertMany(DEFAULT_CURRENCIES.map((curr) => ({ ...curr })))
+      await this.model.insertMany(DEFAULT_CURRENCIES.map((curr) => ({ ...curr })))
     }
   }
 
   async register(input: { code: string; scale: number; type: CurrencyType }): Promise<Currency> {
     const currency: Currency = { code: input.code, scale: input.scale, type: input.type };
-    await this.collection().updateOne({ code: currency.code }, { $set: currency }, { upsert: true });
+    await this.model.updateOne({ code: currency.code }, { $set: currency }, { upsert: true });
     return currency;
   }
 
   async list(): Promise<Currency[]> {
-    return this.collection().find({}, { projection: { _id: 0 } }).sort({ code: 1 }).toArray();
+    return this.model.find().select('-_id').sort({ code: 1 }).lean<Currency[]>().exec();
   }
 
   async get(code: string): Promise<Currency | null> {
-    return this.collection().findOne({ code }, { projection: { _id: 0 } });
+    return this.model.findOne({ code }).select('-_id').lean<Currency>().exec();
   }
 
   async require(code: string): Promise<Currency> {

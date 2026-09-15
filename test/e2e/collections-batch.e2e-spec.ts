@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { createTestApp, TEST_API_KEY, TestApp } from "../utils/app";
 import request from 'supertest';
-import { userAccountId } from "../../src/accounts/account";
+import { AccountDoc, userAccountId } from "../../src/accounts/account";
 import { toDecimal128 } from "../../src/common/money";
 
 describe('Collections batch settlement', () => {
@@ -141,7 +141,7 @@ describe('Collections batch settlement', () => {
     // is provisioned as a side effect of collect's ensureUserWallet, so it's safe to write to
     // directly here). Debt (700) is bigger than the first item alone but smaller than the batch.
     const refundChargebackAccountId = userAccountId('', ownerId, currency, 'refund-chargeback');
-    const setResult = await ctx.db.collection('accounts').updateOne(
+    const setResult = await ctx.db.collection<AccountDoc>('accounts').updateOne(
       { _id: refundChargebackAccountId },
       { $set: { balance: toDecimal128(-700n) } },
     );

@@ -1,4 +1,4 @@
-import { Decimal128 } from "mongodb";
+import { Types } from "mongoose";
 
 export const USER_ACCOUNT_TYPES = ['available', 'held-inflow', 'held-outflow', 'reserve', 'refund-chargeback'] as const;
 export type UserAccountTpe = (typeof USER_ACCOUNT_TYPES)[number];
@@ -7,11 +7,12 @@ export type AccountKind = 'user' | 'system';
 
 export interface AccountDoc {
   _id: string;
+  tenantId: string;
   ownerId: string | null;
   currency: string;
   accountType: string;
   kind: AccountKind;
-  balance: Decimal128;
+  balance: Types.Decimal128;
   version: number;
   sequence: number;
   createdAt: Date;

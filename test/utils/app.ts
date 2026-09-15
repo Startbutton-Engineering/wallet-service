@@ -25,7 +25,7 @@ export async function createTestApp(overrides: ProviderOverride[] = []): Promise
 
   const config = loadConfig({
     MONGO_PATH: uri,
-    MONGO_DB: `ledger_test_${randomUUID().replace(/-/g, '')}`,
+    DB_NAME: `ledger_test_${randomUUID().replace(/-/g, '')}`,
     API_KEYS: TEST_API_KEY,
   } as NodeJS.ProcessEnv)
 

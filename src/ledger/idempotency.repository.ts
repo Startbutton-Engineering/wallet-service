@@ -1,21 +1,18 @@
 import { Injectable, OnModuleInit } from "@nestjs/common";
-import { DatabaseService } from "../database/database.service";
+import { InjectModel } from "@nestjs/mongoose";
+import { ClientSession, Model } from "mongoose";
 import { createHash } from "crypto";
 import { IdempotencyDoc } from "./types";
-import { ClientSession } from "mongodb";
-
-const COLLECTION = 'idempotency';
+import { Idempotency } from "./schemas/idempotency.schema";
 
 @Injectable()
 export class IdempotencyRepository implements OnModuleInit {
-  constructor(private readonly db: DatabaseService) {}
-
-  private col() {
-    return this.db.collection<IdempotencyDoc>(COLLECTION);
-  }
+  constructor(
+    @InjectModel(Idempotency.name) private readonly model: Model<IdempotencyDoc>
+  ) {}
 
   async onModuleInit(): Promise<void> {
-    await this.db.db.createCollection(COLLECTION).catch(() => undefined)
+    await this.model.createCollection().catch(() => undefined)
   }
 
   static hash(operationType: string, payload: unknown): string {
@@ -31,11 +28,14 @@ export class IdempotencyRepository implements OnModuleInit {
   }
 
   async find(tenantId: string, key: string):Promise<IdempotencyDoc | null> {
-    return this.col().findOne({ _id: IdempotencyRepository.id(tenantId, key)});
+    return this.model
+      .findOne({ _id: IdempotencyRepository.id(tenantId, key) })
+      .lean<IdempotencyDoc>()
+      .exec();
   }
 
   async insert(doc: IdempotencyDoc, session: ClientSession):Promise<void> {
-    await this.col().insertOne(doc, {session} );
+    await this.model.create([doc], { session });
   }
 
 }
