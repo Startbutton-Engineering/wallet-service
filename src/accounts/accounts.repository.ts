@@ -109,9 +109,9 @@ export class AccountsRepository implements OnModuleInit {
       .lean<AccountDoc[]>()
       .exec();
     if (docs.length === 0) return null;
-    console.log(docs)
+
     const types = new Map(docs.map((d) => [d.accountType, fromDecimal128(d.balance)]))
-    console.log(types)
+
     const available = types.get('available') ?? 0n;
     const heldInflow = types.get('held-inflow') ?? 0n;
     const heldOutflow = types.get('held-outflow') ?? 0n;
