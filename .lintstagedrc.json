@@ -1,0 +1,5 @@
+{
+  "*.ts": [
+    "jest --config ./jest.unit.config.js --bail --passWithNoTests --findRelatedTests"
+  ]
+}

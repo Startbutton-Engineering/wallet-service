@@ -49,9 +49,7 @@ export class WalletsService {
     await this.currencyService.require(currency);
 
     const source = accountRef.user(ownerId, currency, from, 'available');
-    console.log({ source })
     const destination = accountRef.user(ownerId, currency, to, 'available');
-    console.log({ destination })
     return this.ledgerService.post<WalletTransferResult>({
       tenantId,
       idempotencyKey,
@@ -62,7 +60,6 @@ export class WalletsService {
         const alreadyApplied = await ctx.referenceNetAmount(transferId, destination, [
           WALLET_TRANSFER_OPERATION,
         ]);
-        console.log({ alreadyApplied })
         if (alreadyApplied !== 0n) throw AppError.walletTransferAlreadyApplied(transferId);
 
         return {
