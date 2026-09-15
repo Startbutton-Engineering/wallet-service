@@ -1,5 +1,5 @@
 import { Types } from "mongoose";
-import { AccountRef, UserAccountTpe } from "../accounts/account";
+import { AccountRef, WalletType } from "../accounts/account";
 
 export type Direction = 'debit' | 'credit';
 
@@ -32,6 +32,7 @@ export interface PostingDoc {
   entryId: string;
   accountId: string;
   ownerId: string | null;
+  walletType: WalletType | null;
   currency: string;
   direction: Direction;
   amount: Types.Decimal128;
@@ -88,5 +89,11 @@ export interface OutboxEventI {
 
 export enum OutboxEventType {
   COLLECTION_RECEIVED = 'CollectionReceived',
-  COLLECTION_SETTLED = 'CollectionSettled'
+  COLLECTION_SETTLED = 'CollectionSettled',
+  PAYOUT_INITIATED = 'PayoutInitiated',
+  PAYOUT_SUCCEEDED = 'PayoutSucceeded',
+  PAYOUT_FAILED = 'PayoutFailed',
+  PAYOUT_REVERSED = 'PayoutReversed',
+  PAYOUT_REVERSE_FAILED = 'PayoutReverseFailed',
+  WALLET_TRANSFERRED = 'WalletTransferred'
 }

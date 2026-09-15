@@ -5,12 +5,14 @@ import { IdempotencyKey } from "../common/idempotency-key.decorator";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import { collectionSchema, collectionBatchSchema } from "./dto";
 import type { CollectionDto, CollectionBatchDto } from './dto';
+import { ResponseMessage } from "../common/api-response";
 
 @Controller('collections')
 export class CollectionsController {
   constructor(private readonly collections: CollectionsService) {}
 
   @Post('collect')
+  @ResponseMessage('Collection received')
   async collect(
     @TenantId() tenantId: string,
     @IdempotencyKey() idempotencyKey: string,
@@ -27,6 +29,7 @@ export class CollectionsController {
   }
 
   @Post('settle')
+  @ResponseMessage('Collection settled')
   async settle(
     @TenantId() tenantId: string,
     @IdempotencyKey() idempotencyKey: string,
@@ -43,6 +46,7 @@ export class CollectionsController {
   }
 
   @Post('settle-batch')
+  @ResponseMessage('Collections settled')
   async settleBatch(
     @TenantId() tenantId: string,
     @IdempotencyKey() idempotencyKey: string,

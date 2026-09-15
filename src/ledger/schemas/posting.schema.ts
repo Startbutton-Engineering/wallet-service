@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { SchemaTypes, Types } from "mongoose";
 import type { Direction } from "../types";
+import type { WalletType } from "../../accounts/account";
 
 @Schema({ collection: 'postings', versionKey: false })
 export class Posting {
@@ -21,6 +22,9 @@ export class Posting {
 
   @Prop({ type: String, default: null })
   ownerId: string | null;
+
+  @Prop({ type: String, default: null })
+  walletType: WalletType | null;
 
   @Prop({ type: String })
   currency: string;

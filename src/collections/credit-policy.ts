@@ -15,14 +15,14 @@ export const creditWithDebtPaydown = (params: {
   const postings: EntryI['postings'] = [];
   if (settled > 0n) {
     postings.push({
-      account: accountRef.user(ownerId, currency, 'refund-chargeback'),
+      account: accountRef.collectionWallet(ownerId, currency, 'refund-chargeback'),
       direction: 'credit',
       amount: settled
     })
   }
   if (amountToCredit > 0n) {
     postings.push({
-      account: accountRef.userAvailable(ownerId, currency),
+      account: accountRef.collectionWallet(ownerId, currency, 'available'),
       direction: 'credit',
       amount: amountToCredit
     })

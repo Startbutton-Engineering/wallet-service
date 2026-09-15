@@ -1,7 +1,7 @@
 import { Injectable, OnModuleInit } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { ClientSession, Model } from "mongoose";
-import { AccountDoc, systemAccountId, USER_ACCOUNT_TYPES, userAccountId } from "./account";
+import { AccountDoc, systemAccountId, USER_ACCOUNT_TYPES, userAccountId, WalletType } from "./account";
 import { Account } from "./account.schema";
 import { fromDecimal128, toDecimal128 } from "../common/money";
 import { WalletBalance } from "../wallets/dto";
@@ -12,6 +12,7 @@ export class AccountsRepository implements OnModuleInit {
 
   async onModuleInit(): Promise<void> {
     await this.model.createCollection().catch(() => undefined);
+    await this.model.syncIndexes().catch(() => undefined);
   }
 
   /** Provision user sub-accounts if they do not already exist.
@@ -22,11 +23,12 @@ export class AccountsRepository implements OnModuleInit {
     tenantId: string,
     ownerId: string,
     currency: string,
+    walletType: WalletType,
     session?: ClientSession
   ): Promise<void> {
     const now = new Date();
     const ops = USER_ACCOUNT_TYPES.map((accountType) => {
-      const _id = userAccountId(tenantId, ownerId, currency, accountType);
+      const _id = userAccountId(tenantId, ownerId, currency, walletType, accountType);
       return {
         updateOne: {
           filter: { _id },
@@ -35,6 +37,7 @@ export class AccountsRepository implements OnModuleInit {
               tenantId,
               ownerId,
               currency,
+              walletType,
               accountType,
               kind: 'user' as const,
               balance: toDecimal128(0n),
@@ -66,6 +69,7 @@ export class AccountsRepository implements OnModuleInit {
           tenantId,
           ownerId: null,
           currency,
+          walletType: null,
           accountType: name,
           kind: 'system' as const,
           balance: toDecimal128(0n),
@@ -83,8 +87,13 @@ export class AccountsRepository implements OnModuleInit {
     return this.model.findOne({ _id: id }, null, { session }).lean<AccountDoc>().exec()
   }
 
-  async exists(tenantId: string, ownerId: string, currency: string): Promise<boolean> {
-    const id = userAccountId(tenantId, ownerId, currency, 'available')
+  async exists(
+    tenantId: string,
+    ownerId: string,
+    currency: string,
+    walletType: WalletType
+  ): Promise<boolean> {
+    const id = userAccountId(tenantId, ownerId, currency, walletType, 'available')
     return (await this.model.exists({ _id: id })) !== null
   }
 
@@ -92,15 +101,17 @@ export class AccountsRepository implements OnModuleInit {
     tenantId: string,
     ownerId: string,
     currency: string,
+    walletType: WalletType,
     session?: ClientSession
   ): Promise<WalletBalance | null> {
     const docs = await this.model
-      .find({ tenantId, ownerId, currency, kind: 'user' }, null, { session })
+      .find({ tenantId, ownerId, currency, walletType, kind: 'user' }, null, { session })
       .lean<AccountDoc[]>()
       .exec();
     if (docs.length === 0) return null;
 
     const types = new Map(docs.map((d) => [d.accountType, fromDecimal128(d.balance)]))
+
     const available = types.get('available') ?? 0n;
     const heldInflow = types.get('held-inflow') ?? 0n;
     const heldOutflow = types.get('held-outflow') ?? 0n;
@@ -111,6 +122,7 @@ export class AccountsRepository implements OnModuleInit {
       tenantId,
       ownerId,
       currency,
+      walletType,
       available,
       heldInflow,
       heldOutflow,
