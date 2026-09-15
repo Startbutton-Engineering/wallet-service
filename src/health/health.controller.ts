@@ -1,6 +1,7 @@
 import { Controller, Get } from "@nestjs/common";
 import { DatabaseService } from "../database/database.service";
 import { Public } from "../auth/public.decorator";
+import { ResponseMessage } from "../common/api-response";
 
 @Controller('health')
 export class HealthController {
@@ -8,6 +9,7 @@ export class HealthController {
 
   @Public()
   @Get()
+  @ResponseMessage('Service healthy')
   async health(): Promise<{ status: string; database: { connected: boolean; replicaSet: boolean } }> {
     const db = this.databaseService.db;
     const isConnected = await db.command({ ping: 1 }).then(() => true).catch(() => false);

@@ -57,21 +57,21 @@ describe('Collections batch settlement', () => {
     });
 
     expect(res.status).toBe(201);
-    expect(res.body.items).toHaveLength(3);
+    expect(res.body.data.items).toHaveLength(3);
     for (let i = 0; i < collectionIds.length; i++) {
-      expect(res.body.items[i].collectionId).toBe(collectionIds[i]);
-      expect(res.body.items[i].amountToCredit).toBe(amounts[i]);
-      expect(typeof res.body.items[i].entryId).toBe('string');
-      expect(res.body.items[i].entryId.length).toBeGreaterThan(0);
+      expect(res.body.data.items[i].collectionId).toBe(collectionIds[i]);
+      expect(res.body.data.items[i].amountToCredit).toBe(amounts[i]);
+      expect(typeof res.body.data.items[i].entryId).toBe('string');
+      expect(res.body.data.items[i].entryId.length).toBeGreaterThan(0);
     }
-    expect(res.body.balance.available).toBe('6000');
-    expect(res.body.balance.heldInflow).toBe('0');
+    expect(res.body.data.balance.available).toBe('6000');
+    expect(res.body.data.balance.heldInflow).toBe('0');
 
     // Each collectionId is independently settled - a later settle attempt against just one of
     // them (on its own) reports it as already fully settled, proving it got its own reference.
     const followUp = await settle({ collectionId: collectionIds[0], ownerId, currency, amount: '1' });
     expect(followUp.status).toBe(422);
-    expect(followUp.body.code).toBe('COLLECTION_OVER_SETTLEMENT');
+    expect(followUp.body.data.code).toBe('COLLECTION_OVER_SETTLEMENT');
   });
 
   it('rejects the whole batch and posts nothing when one item is over-settlement, even if the others are valid', async () => {
@@ -93,8 +93,8 @@ describe('Collections batch settlement', () => {
     });
 
     expect(res.status).toBe(422);
-    expect(res.body.code).toBe('COLLECTION_OVER_SETTLEMENT');
-    expect(res.body.details.collectionId).toBe(badId);
+    expect(res.body.data.code).toBe('COLLECTION_OVER_SETTLEMENT');
+    expect(res.body.data.details.collectionId).toBe(badId);
 
     // Nothing posted for the valid item either - the batch is atomic. (goodId already has its
     // two 'collection.receive' postings from the collect() call above - only settle postings matter here.)
@@ -124,7 +124,7 @@ describe('Collections batch settlement', () => {
     });
 
     expect(res.status).toBe(400);
-    expect(res.body.code).toBe('VALIDATION_FAILED');
+    expect(res.body.data.code).toBe('VALIDATION_FAILED');
   });
 
   it('pays down refund/chargeback debt in array order before crediting available', async () => {
@@ -140,7 +140,7 @@ describe('Collections batch settlement', () => {
     // Seed a refund/chargeback debt (this service has no refunds endpoint yet - the debt account
     // is provisioned as a side effect of collect's ensureUserWallet, so it's safe to write to
     // directly here). Debt (700) is bigger than the first item alone but smaller than the batch.
-    const refundChargebackAccountId = userAccountId('', ownerId, currency, 'refund-chargeback');
+    const refundChargebackAccountId = userAccountId('', ownerId, currency, 'collection', 'refund-chargeback');
     const setResult = await ctx.db.collection<AccountDoc>('accounts').updateOne(
       { _id: refundChargebackAccountId },
       { $set: { balance: toDecimal128(-700n) } },
@@ -155,12 +155,12 @@ describe('Collections batch settlement', () => {
 
     expect(res.status).toBe(201);
     // First item pays down the full 700 debt, keeps 300; second item has no debt left, keeps all 1000.
-    expect(res.body.items[0].settledToDebit).toBe('700');
-    expect(res.body.items[0].amountToCredit).toBe('300');
-    expect(res.body.items[1].settledToDebit).toBe('0');
-    expect(res.body.items[1].amountToCredit).toBe('1000');
-    expect(res.body.balance.refundChargeback).toBe('0');
-    expect(res.body.balance.available).toBe('1300');
+    expect(res.body.data.items[0].settledToDebit).toBe('700');
+    expect(res.body.data.items[0].amountToCredit).toBe('300');
+    expect(res.body.data.items[1].settledToDebit).toBe('0');
+    expect(res.body.data.items[1].amountToCredit).toBe('1000');
+    expect(res.body.data.balance.refundChargeback).toBe('0');
+    expect(res.body.data.balance.available).toBe('1300');
   });
 
   it('replays the same result for a repeated idempotency key', async () => {

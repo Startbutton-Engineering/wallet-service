@@ -35,12 +35,12 @@ describe('Collections', () => {
 
     const collectRes = await collect({ collectionId, ownerId, currency: 'NGN', amount: '1000' });
     expect(collectRes.status).toBe(201);
-    expect(collectRes.body.balance.heldInflow).toBe('1000');
+    expect(collectRes.body.data.balance.heldInflow).toBe('1000');
 
     const settleRes = await settle({ collectionId, ownerId, currency: 'NGN', amount: '1000' });
     expect(settleRes.status).toBe(201);
-    expect(settleRes.body.balance.heldInflow).toBe('0');
-    expect(settleRes.body.balance.available).toBe('1000');
+    expect(settleRes.body.data.balance.heldInflow).toBe('0');
+    expect(settleRes.body.data.balance.available).toBe('1000');
   });
 
   it('rejects settling a collectionId that was never collected', async () => {
@@ -49,7 +49,7 @@ describe('Collections', () => {
 
     const res = await settle({ collectionId, ownerId, currency: 'NGN', amount: '500' });
     expect(res.status).toBe(422);
-    expect(res.body.code).toBe('COLLECTION_OVER_SETTLEMENT');
+    expect(res.body.data.code).toBe('COLLECTION_OVER_SETTLEMENT');
   });
 
   it('rejects settling the same collectionId a second time', async () => {
@@ -62,7 +62,7 @@ describe('Collections', () => {
 
     const secondSettle = await settle({ collectionId, ownerId, currency: 'NGN', amount: '1000' });
     expect(secondSettle.status).toBe(422);
-    expect(secondSettle.body.code).toBe('COLLECTION_OVER_SETTLEMENT');
+    expect(secondSettle.body.data.code).toBe('COLLECTION_OVER_SETTLEMENT');
   });
 
   it('rejects settling more than was collected for a collectionId', async () => {
@@ -72,7 +72,7 @@ describe('Collections', () => {
     await collect({ collectionId, ownerId, currency: 'NGN', amount: '1000' });
     const res = await settle({ collectionId, ownerId, currency: 'NGN', amount: '1500' });
     expect(res.status).toBe(422);
-    expect(res.body.code).toBe('COLLECTION_OVER_SETTLEMENT');
+    expect(res.body.data.code).toBe('COLLECTION_OVER_SETTLEMENT');
   });
 
   it('rejects collecting the same collectionId twice, even with a different idempotency key', async () => {
@@ -84,6 +84,6 @@ describe('Collections', () => {
 
     const second = await collect({ collectionId, ownerId, currency: 'NGN', amount: '1000' });
     expect(second.status).toBe(409);
-    expect(second.body.code).toBe('COLLECTION_ALREADY_RECEIVED');
+    expect(second.body.data.code).toBe('COLLECTION_ALREADY_RECEIVED');
   });
 })

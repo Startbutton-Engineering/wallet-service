@@ -1,5 +1,5 @@
 import { Types } from "mongoose";
-import { AccountRef, UserAccountTpe } from "../accounts/account";
+import { AccountRef, WalletType } from "../accounts/account";
 
 export type Direction = 'debit' | 'credit';
 
@@ -32,6 +32,7 @@ export interface PostingDoc {
   entryId: string;
   accountId: string;
   ownerId: string | null;
+  walletType: WalletType | null;
   currency: string;
   direction: Direction;
   amount: Types.Decimal128;

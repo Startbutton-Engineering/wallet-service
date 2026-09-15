@@ -59,7 +59,7 @@ export class CollectionsService {
     return this.post(params, 'collection.receive', OutboxEventType.COLLECTION_RECEIVED, async(ctx) => {
       const alreadyReceived = await ctx.referenceNetAmount(
         collectionId,
-        accountRef.user(ownerId, currency, 'held-inflow'),
+        accountRef.collectionWallet(ownerId, currency, 'held-inflow'),
         ['collection.receive']
       );
       if (alreadyReceived !== 0n) throw AppError.collectionAlreadyReceived(collectionId);
@@ -68,8 +68,8 @@ export class CollectionsService {
         entries: [{
           currency,
           postings: [
-            { account: accountRef.collection(currency), direction: 'debit', amount},
-            { account: accountRef.user(ownerId, currency, 'held-inflow'), direction: 'credit', amount}
+            { account: accountRef.systemCollection(currency), direction: 'debit', amount},
+            { account: accountRef.collectionWallet(ownerId, currency, 'held-inflow'), direction: 'credit', amount}
           ]
         }]
       }
@@ -81,7 +81,7 @@ export class CollectionsService {
     return this.post(params, 'collection.settle', OutboxEventType.COLLECTION_SETTLED, async(ctx) => {
       const outstanding = await ctx.referenceNetAmount(
         collectionId,
-        accountRef.user(ownerId, currency, 'held-inflow')
+        accountRef.collectionWallet(ownerId, currency, 'held-inflow')
       );
       if (amount > outstanding) {
         throw AppError.collectionOverSettlement({
@@ -91,7 +91,7 @@ export class CollectionsService {
         });
       }
 
-      const current = await ctx.readBalance(ownerId, currency);
+      const current = await ctx.readBalance(ownerId, currency, 'collection');
       const { postings, settled, amountToCredit } = creditWithDebtPaydown({
         ownerId,
         currency,
@@ -102,7 +102,7 @@ export class CollectionsService {
         entries: [{
           currency,
           postings: [
-            { account: accountRef.user(ownerId, currency, 'held-inflow'), direction: 'debit', amount },
+            { account: accountRef.collectionWallet(ownerId, currency, 'held-inflow'), direction: 'debit', amount },
             ...postings
           ]
         }],
@@ -129,7 +129,7 @@ export class CollectionsService {
         items: items.map((i) => ({ collectionId: i.collectionId, amount: i.amount.toString() })),
       },
       generateLedgerOps: async (ctx) => {
-        const current = await ctx.readBalance(ownerId, currency);
+        const current = await ctx.readBalance(ownerId, currency, 'collection');
         let runningRefundChargeback = current.refundChargeback;
         const entries: EntryI[] = [];
         const perItem: BatchCollectionResult['items'] = [];
@@ -137,7 +137,7 @@ export class CollectionsService {
         for (const item of items) {
           const outstanding = await ctx.referenceNetAmount(
             item.collectionId,
-            accountRef.user(ownerId, currency, 'held-inflow'),
+            accountRef.collectionWallet(ownerId, currency, 'held-inflow'),
           );
           if (item.amount > outstanding) {
             throw AppError.collectionOverSettlement({
@@ -159,7 +159,7 @@ export class CollectionsService {
             currency,
             reference: item.collectionId,
             postings: [
-              { account: accountRef.user(ownerId, currency, 'held-inflow'), direction: 'debit', amount: item.amount },
+              { account: accountRef.collectionWallet(ownerId, currency, 'held-inflow'), direction: 'debit', amount: item.amount },
               ...postings,
             ],
           });
@@ -175,11 +175,11 @@ export class CollectionsService {
 
         return {
           entries,
-          guardNegative: [accountRef.user(ownerId, currency, 'held-inflow')],
+          guardNegative: [accountRef.collectionWallet(ownerId, currency, 'held-inflow')],
           buildResponse: async (post) => ({
             operationId: post.operationId,
             items: perItem.map((p, i) => ({ ...p, entryId: post.entryIds[i] })),
-            balance: balanceToJson(await post.accountBalance(ownerId, currency)),
+            balance: balanceToJson(await post.accountBalance(ownerId, currency, 'collection')),
           }),
           buildEvent: async (post) => this.events(
             OutboxEventType.COLLECTION_SETTLED,
@@ -221,13 +221,13 @@ export class CollectionsService {
         const planned = await plan(ctx)
         return {
           entries: planned.entries,
-          guardNegative: [accountRef.user(ownerId, currency, 'held-inflow')],
+          guardNegative: [accountRef.collectionWallet(ownerId, currency, 'held-inflow')],
           reversalOf: planned.reversalOf,
           buildResponse: async(post) => ({
             operationId: post.operationId,
             entryId: post.entryIds[0],
             collectionId,
-            balance: balanceToJson(await post.accountBalance(ownerId, currency))
+            balance: balanceToJson(await post.accountBalance(ownerId, currency, 'collection'))
           }),
           buildEvent: async(post) => this.events(
             eventType,
@@ -261,7 +261,7 @@ export class CollectionsService {
       currency,
       amount: amount.toString(),
       ...(metaData ?? {}),
-      balance: balanceToJson(await post.accountBalance(ownerId, currency)),
+      balance: balanceToJson(await post.accountBalance(ownerId, currency, 'collection')),
     }
     return [type, ...alsoEmit].map((t) => ({ type: t, schemaVersion: 1, payload }));
   }

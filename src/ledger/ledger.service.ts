@@ -7,7 +7,7 @@ import { IdempotencyRepository } from "./idempotency.repository";
 import { AppError, OccConflict } from "../common/errors";
 import { randomUUID } from "crypto";
 import { AccountsRepository } from "../accounts/accounts.repository";
-import { AccountDoc, AccountRef, systemAccountId, userAccountId } from "../accounts/account";
+import { AccountDoc, AccountRef, systemAccountId, userAccountId, WalletType } from "../accounts/account";
 import { Account } from "../accounts/account.schema";
 import { Posting } from "./schemas/posting.schema";
 import { Entry } from "./schemas/entry.schema";
@@ -17,13 +17,13 @@ import { OutboxRepository } from "./outbox.repository";
 const OCC_MAX_RETRIES = 8;
 
 export interface PrePostContext {
-  readBalance(ownerId: string, currency: string): Promise<WalletBalance>;
+  readBalance(ownerId: string, currency: string, walletType: WalletType): Promise<WalletBalance>;
   referenceNetAmount(reference: string, account: AccountRef, operationTypes?: string[]): Promise<bigint>;
   session: ClientSession
 }
 
 export interface PostPostingContext {
-  accountBalance(ownerId: string, currency: string): Promise<WalletBalance>;
+  accountBalance(ownerId: string, currency: string, walletType: WalletType): Promise<WalletBalance>;
   operationId: string;
   entryIds: string[]
 }
@@ -118,9 +118,11 @@ export class LedgerService implements OnModuleInit {
 
     const PrePostContext: PrePostContext = {
       session,
-      readBalance: async(ownerId, currency) => {
-        await this.accountsRepo.ensureUserWallet(tenantId, ownerId, currency, session);
-        const accountBalance = await this.accountsRepo.balanceBreakdown(tenantId, ownerId, currency, session);
+      readBalance: async(ownerId, currency, walletType) => {
+        await this.accountsRepo.ensureUserWallet(tenantId, ownerId, currency, walletType, session);
+        const accountBalance = await this.accountsRepo.balanceBreakdown(
+          tenantId, ownerId, currency, walletType, session
+        );
         return accountBalance!
       },
       referenceNetAmount: async (reference, account, operationTypes) => {
@@ -176,6 +178,7 @@ export class LedgerService implements OnModuleInit {
           entryId,
           accountId,
           ownerId: doc.ownerId,
+          walletType: doc.walletType,
           currency: entry.currency,
           direction: posting.direction,
           amount: toDecimal128(posting.amount),
@@ -249,8 +252,10 @@ export class LedgerService implements OnModuleInit {
     const post: PostPostingContext = {
       operationId,
       entryIds: entryDocs.map((e) => e._id),
-      accountBalance: async (ownerId, currency) => {
-        const b = await this.accountsRepo.balanceBreakdown(tenantId, ownerId, currency, session);
+      accountBalance: async (ownerId, currency, walletType) => {
+        const b = await this.accountsRepo.balanceBreakdown(
+          tenantId, ownerId, currency, walletType, session
+        );
         return b!;
       }
     }
@@ -296,7 +301,7 @@ export class LedgerService implements OnModuleInit {
 
   private resolveId(tenantId: string, ref: AccountRef): string {
     return ref.kind === 'user'
-      ? userAccountId(tenantId, ref.ownerId, ref.currency, ref.accountType)
+      ? userAccountId(tenantId, ref.ownerId, ref.currency, ref.walletType, ref.accountType)
       : systemAccountId(tenantId, ref.name, ref.currency);
   }
 
@@ -308,12 +313,16 @@ export class LedgerService implements OnModuleInit {
     const userAccounts = new Set<string>();
     const systemAccounts: AccountRef[] = [];
     for (const accountRef of accountRefs) {
-      if (accountRef.kind === 'user') userAccounts.add(`${accountRef.ownerId}\0${accountRef.currency}`);
+      if (accountRef.kind === 'user') {
+        userAccounts.add(`${accountRef.ownerId}\0${accountRef.currency}\0${accountRef.walletType}`);
+      }
       else systemAccounts.push(accountRef);
     }
     for (const key of userAccounts) {
-      const [ownerId, currency] = key.split('\0');
-      await this.accountsRepo.ensureUserWallet(tenantId, ownerId, currency, session)
+      const [ownerId, currency, walletType] = key.split('\0');
+      await this.accountsRepo.ensureUserWallet(
+        tenantId, ownerId, currency, walletType as WalletType, session
+      )
     }
     for (const sys of systemAccounts) {
       if (sys.kind === 'system') {

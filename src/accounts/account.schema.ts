@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { SchemaTypes, Types } from "mongoose";
-import type { AccountKind } from "./account";
+import type { AccountKind, WalletType } from "./account";
 
 /** The `accounts` collection. `_id` is the deterministic id built by
  * userAccountId()/systemAccountId(), never an ObjectId.
@@ -23,6 +23,9 @@ export class Account {
 
   @Prop({ type: String })
   currency: string;
+
+  @Prop({ type: String, default: 'collection' })
+  walletType: WalletType | null;
 
   @Prop({ type: String })
   accountType: string;
@@ -48,5 +51,5 @@ export class Account {
 
 export const AccountSchema = SchemaFactory.createForClass(Account);
 
-AccountSchema.index({ tenantId: 1, ownerId: 1, currency: 1, accountType: 1 });
+AccountSchema.index({ tenantId: 1, ownerId: 1, currency: 1, walletType: 1, accountType: 1 });
 AccountSchema.index({ tenantId: 1, kind: 1, currency: 1 });
