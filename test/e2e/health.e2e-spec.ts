@@ -1,4 +1,4 @@
-import { createTestApp, TestApp } from "./utils/app"
+import { createTestApp, TestApp } from "../utils/app"
 import request from 'supertest';
 
 describe('Health', () => {

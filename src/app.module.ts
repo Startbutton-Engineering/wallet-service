@@ -6,9 +6,18 @@ import { ApiKeyGuard } from './auth/api-key.guard';
 import { CurrencyModule } from './currency/currency.module';
 import { AccountsModule } from './accounts/accounts.module';
 import { WalletsModule } from './wallets/wallets.module';
+import { LedgerModule } from './ledger/ledger.module';
+import { CollectionsModule } from './collections/collections.module';
 
 @Module({
-  imports: [DatabaseModule, CurrencyModule, AccountsModule, WalletsModule],
+  imports: [
+    DatabaseModule,
+    CurrencyModule,
+    AccountsModule,
+    LedgerModule,
+    WalletsModule,
+    CollectionsModule
+  ],
   controllers: [HealthController],
   providers: [
     { provide: APP_GUARD, useClass: ApiKeyGuard}

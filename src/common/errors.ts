@@ -12,9 +12,12 @@ export enum ErrorCode {
   INSUFFICIENT_FUNDS = 'INSUFFICIENT_FUNDS',
   IDEMPOTENCY_KEY_REUSE = 'IDEMPOTENCY_KEY_REUSE',
   NOT_FOUND = 'NOT_FOUND',
+  COLLECTION_ALREADY_RECEIVED = 'COLLECTION_ALREADY_RECEIVED',
+  COLLECTION_OVER_SETTLEMENT = 'COLLECTION_OVER_SETTLEMENT',
   // System
   INTERNAL_ERROR = 'INTERNAL_ERROR',
   SERVICE_UNAVAILABLE = 'SERVICE_UNAVAILABLE',
+  CONCURRENCY_RETRY_EXHAUSTED = 'CONCURRENCY_RETRY_EXHAUSTED'
 }
 
 export interface ErrorResponse {
@@ -88,4 +91,35 @@ export class AppError extends Error {
   static notFound(message: string, details?: Record<string, unknown>): AppError {
     return new AppError(ErrorCode.NOT_FOUND, HttpStatus.NOT_FOUND, message, false, details)
   }
+
+  static collectionAlreadyReceived(collectionId: string): AppError {
+    return new AppError(
+      ErrorCode.COLLECTION_ALREADY_RECEIVED,
+      HttpStatus.CONFLICT,
+      `Collection ${collectionId} has already been received.`,
+      false,
+      { collectionId }
+    )
+  }
+
+  static collectionOverSettlement(details: Record<string, unknown>): AppError {
+    return new AppError(
+      ErrorCode.COLLECTION_OVER_SETTLEMENT,
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      'Settlement amount exceeds the outstanding amount for this collection.',
+      false,
+      details
+    )
+  }
+
+  static retryExhausted(): AppError {
+    return new AppError(
+      ErrorCode.CONCURRENCY_RETRY_EXHAUSTED,
+      HttpStatus.SERVICE_UNAVAILABLE,
+      'Concurrent modification retry limit exceeded; retry the request',
+      true
+    )
+  }
 }
+
+export class OccConflict extends Error {}
