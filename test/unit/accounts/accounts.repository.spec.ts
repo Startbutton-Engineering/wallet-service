@@ -1,12 +1,11 @@
 import { AccountsRepository } from '../../../src/accounts/accounts.repository';
 import { AccountDoc } from '../../../src/accounts/account';
-import { USER_ACCOUNT_TYPES, userAccountId, systemAccountId } from '../../../src/accounts/account';
+import { USER_ACCOUNT_TYPES } from '../../../src/accounts/account';
 import { fromDecimal128 } from '../../../src/common/money';
 import {
   CURRENCY,
   OWNER,
   TENANT,
-  accountDoc,
   MockModel,
   mockModel,
   mockQuery,
@@ -30,10 +29,14 @@ describe('AccountsRepository', () => {
       expect(model.syncIndexes).toHaveBeenCalled();
     });
 
-    it('swallows a failure on either, so a racing replica does not break boot', async () => {
+    it('tolerates the collection already existing, so a racing replica does not break boot', async () => {
       model.createCollection.mockRejectedValue(new Error('exists'));
-      model.syncIndexes.mockRejectedValue(new Error('busy'));
       await expect(repo.onModuleInit()).resolves.toBeUndefined();
+    });
+
+    it('fails boot when indexes cannot be synced, rather than serving with no unique index', async () => {
+      model.syncIndexes.mockRejectedValue(new Error('E11000 duplicate key'));
+      await expect(repo.onModuleInit()).rejects.toThrow('E11000');
     });
   });
 
@@ -43,9 +46,16 @@ describe('AccountsRepository', () => {
 
       const [ops] = model.bulkWrite.mock.calls[0];
       expect(ops).toHaveLength(USER_ACCOUNT_TYPES.length);
-      expect(ops.map((op: any) => op.updateOne.filter._id)).toEqual(
-        USER_ACCOUNT_TYPES.map((type) => userAccountId(TENANT, OWNER, CURRENCY, 'collection', type)),
+      expect(ops.map((op: any) => op.updateOne.filter)).toEqual(
+        USER_ACCOUNT_TYPES.map((accountType) => ({
+          tenantId: TENANT,
+          ownerId: OWNER,
+          currency: CURRENCY,
+          walletType: 'collection',
+          accountType,
+        })),
       );
+      expect(ops.every((op: any) => op.updateOne.filter._id === undefined)).toBe(true);
       expect(ops.every((op: any) => op.updateOne.upsert)).toBe(true);
     });
 
@@ -56,15 +66,12 @@ describe('AccountsRepository', () => {
       for (const op of ops) {
         expect(Object.keys(op.updateOne.update)).toEqual(['$setOnInsert']);
         const seed = op.updateOne.update.$setOnInsert;
-        expect(seed).toMatchObject({
-          tenantId: TENANT,
-          ownerId: OWNER,
-          currency: CURRENCY,
-          walletType: 'payout',
-          kind: 'user',
-          version: 0,
-          sequence: 0,
-        });
+        expect(seed).toMatchObject({ kind: 'user', version: 0, sequence: 0 });
+        // The tuple is seeded by MongoDB from the filter's equality clauses, so it must not
+        // be duplicated here — one source of truth, no chance of the two drifting.
+        expect(seed).not.toHaveProperty('tenantId');
+        expect(seed).not.toHaveProperty('ownerId');
+        expect(seed).not.toHaveProperty('accountType');
         expect(fromDecimal128(seed.balance)).toBe(0n);
         expect(seed.createdAt).toEqual(seed.updatedAt);
       }
@@ -87,16 +94,16 @@ describe('AccountsRepository', () => {
       await repo.ensureSystem(TENANT, 'external:collection', CURRENCY);
 
       const [filter, update, options] = model.updateOne.mock.calls[0];
-      expect(filter).toEqual({ _id: systemAccountId(TENANT, 'external:collection', CURRENCY) });
-      expect(update.$setOnInsert).toMatchObject({
+      // ownerId and walletType must be in the filter: they are components of the unique
+      // index, and setDefaultsOnInsert would otherwise inject a schema default for them.
+      expect(filter).toEqual({
         tenantId: TENANT,
         ownerId: null,
+        currency: CURRENCY,
         walletType: null,
         accountType: 'external:collection',
-        kind: 'system',
-        version: 0,
-        sequence: 0,
       });
+      expect(update.$setOnInsert).toMatchObject({ kind: 'system', version: 0, sequence: 0 });
       expect(fromDecimal128(update.$setOnInsert.balance)).toBe(0n);
       expect(options).toEqual({ upsert: true, session: undefined });
     });
@@ -105,35 +112,6 @@ describe('AccountsRepository', () => {
       const session = mockSession();
       await repo.ensureSystem(TENANT, 'external:payout', CURRENCY, session.asSession);
       expect(model.updateOne.mock.calls[0][2]).toEqual({ upsert: true, session: session.asSession });
-    });
-  });
-
-  describe('findById', () => {
-    it('returns the lean document', async () => {
-      const doc = accountDoc();
-      model.findOne.mockReturnValue(mockQuery(doc));
-
-      await expect(repo.findById('account-id')).resolves.toBe(doc);
-      expect(model.findOne).toHaveBeenCalledWith({ _id: 'account-id' }, null, { session: undefined });
-    });
-
-    it('returns null for an unknown id', async () => {
-      await expect(repo.findById('nope')).resolves.toBeNull();
-    });
-  });
-
-  describe('exists', () => {
-    it('probes the available sub-account and reports true when it is there', async () => {
-      model.exists.mockResolvedValue({ _id: 'x' });
-
-      await expect(repo.exists(TENANT, OWNER, CURRENCY, 'collection')).resolves.toBe(true);
-      expect(model.exists).toHaveBeenCalledWith({
-        _id: userAccountId(TENANT, OWNER, CURRENCY, 'collection', 'available'),
-      });
-    });
-
-    it('reports false when the probe finds nothing', async () => {
-      await expect(repo.exists(TENANT, OWNER, CURRENCY, 'payout')).resolves.toBe(false);
     });
   });
 

@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { createTestApp, TEST_API_KEY, TestApp } from "../utils/app";
 import request from 'supertest';
-import { AccountDoc, userAccountId, USER_ACCOUNT_TYPES } from "../../src/accounts/account";
+import { AccountDoc, USER_ACCOUNT_TYPES } from "../../src/accounts/account";
 
 describe('Wallets', () => {
   let ctx: TestApp;
@@ -78,12 +78,15 @@ describe('Wallets', () => {
 
     // One sub-account per type, per wallet type — and no id shared between the two wallets.
     expect(docs).toHaveLength(USER_ACCOUNT_TYPES.length * 2);
-    expect(new Set(docs.map((d) => d._id)).size).toBe(docs.length);
+    // String(): distinct ObjectId instances always differ by reference, so a Set of the
+    // raw values would be vacuously the right size.
+    expect(new Set(docs.map((d) => String(d._id))).size).toBe(docs.length);
     expect(docs.filter((d) => d.walletType === 'collection')).toHaveLength(USER_ACCOUNT_TYPES.length);
     expect(docs.filter((d) => d.walletType === 'payout')).toHaveLength(USER_ACCOUNT_TYPES.length);
 
-    expect(docs.map((d) => d._id)).toContain(userAccountId('', ownerId, 'NGN', 'collection', 'available'));
-    expect(docs.map((d) => d._id)).toContain(userAccountId('', ownerId, 'NGN', 'payout', 'available'));
+    const tuple = (d: AccountDoc) => `${d.walletType}:${d.accountType}`;
+    expect(docs.map(tuple)).toContain('collection:available');
+    expect(docs.map(tuple)).toContain('payout:available');
   });
 
   it('keeps collection money out of the payout wallet', async () => {

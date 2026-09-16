@@ -1,10 +1,10 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
-import { SchemaTypes } from "mongoose";
+import { SchemaTypes, Types } from "mongoose";
 
 @Schema({ collection: 'outbox', versionKey: false, minimize: false })
 export class Outbox {
-  @Prop({ type: String })
-  _id: string;
+  @Prop({ type: SchemaTypes.ObjectId })
+  _id: Types.ObjectId;
 
   @Prop({ type: String })
   tenantId: string;
@@ -18,8 +18,8 @@ export class Outbox {
   @Prop({ type: String })
   dedupeId: string;
 
-  @Prop({ type: String })
-  operationId: string;
+  @Prop({ type: SchemaTypes.ObjectId })
+  operationId: Types.ObjectId;
 
   @Prop({ type: SchemaTypes.Mixed, default: {} })
   payload: Record<string, unknown>;
@@ -37,3 +37,4 @@ export class Outbox {
 export const OutboxSchema = SchemaFactory.createForClass(Outbox);
 
 OutboxSchema.index({ published: 1, createdAt: 1 });
+OutboxSchema.index({ dedupeId: 1 }, { unique: true });

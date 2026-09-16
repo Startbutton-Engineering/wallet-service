@@ -1,7 +1,7 @@
 import { WalletsService, WALLET_TRANSFER_OPERATION } from '../../../src/wallets/wallets.service';
 import { OutboxEventType } from '../../../src/ledger/types';
 import { ErrorCode } from '../../../src/common/errors';
-import { userAccountId } from '../../../src/accounts/account';
+import { accountRef, refKey } from '../../../src/accounts/account';
 import {
   CURRENCY,
   OWNER,
@@ -23,8 +23,7 @@ const params = {
   to: 'payout' as const,
 };
 
-const accountIdOf = (ref: any) =>
-  userAccountId(TENANT, ref.ownerId, ref.currency, ref.walletType, ref.accountType);
+const accountKeyOf = (ref: any) => refKey(ref);
 
 describe('WalletsService', () => {
   let currencies: ReturnType<typeof mockCurrencyRegistry>;
@@ -129,17 +128,17 @@ describe('WalletsService', () => {
 
       const [entry] = ledger.lastOperation.entries;
       expect(entry.currency).toBe(CURRENCY);
-      expect(entry.postings.map((p) => [accountIdOf(p.account), p.direction, p.amount])).toEqual([
-        [userAccountId(TENANT, OWNER, CURRENCY, 'collection', 'available'), 'debit', 1000n],
-        [userAccountId(TENANT, OWNER, CURRENCY, 'payout', 'available'), 'credit', 1000n],
+      expect(entry.postings.map((p) => [accountKeyOf(p.account), p.direction, p.amount])).toEqual([
+        [refKey(accountRef.user(OWNER, CURRENCY, 'collection', 'available')), 'debit', 1000n],
+        [refKey(accountRef.user(OWNER, CURRENCY, 'payout', 'available')), 'credit', 1000n],
       ]);
     });
 
     it('guards only the source wallet against going negative', async () => {
       await service.transfer(params);
 
-      expect(ledger.lastOperation.guardNegative?.map(accountIdOf)).toEqual([
-        userAccountId(TENANT, OWNER, CURRENCY, 'collection', 'available'),
+      expect(ledger.lastOperation.guardNegative?.map(accountKeyOf)).toEqual([
+        refKey(accountRef.user(OWNER, CURRENCY, 'collection', 'available')),
       ]);
     });
 

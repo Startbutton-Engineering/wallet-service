@@ -1,7 +1,8 @@
 import { randomUUID } from "crypto";
 import { createTestApp, TEST_API_KEY, TestApp } from "../utils/app";
 import request from 'supertest';
-import { AccountDoc, systemAccountId, System } from "../../src/accounts/account";
+import { Types } from "mongoose";
+import { AccountDoc, System } from "../../src/accounts/account";
 import { loadConfig } from "../../src/config";
 
 describe('Payouts', () => {
@@ -41,8 +42,13 @@ describe('Payouts', () => {
   }
 
   function systemPayoutBalance(): Promise<AccountDoc | null> {
-    const id = systemAccountId(loadConfig().defaultTenantId, System.payout, 'NGN');
-    return ctx.db.db.collection<AccountDoc>('accounts').findOne({ _id: id }) as Promise<AccountDoc | null>;
+    return ctx.db.db.collection<AccountDoc>('accounts').findOne({
+      tenantId: loadConfig().defaultTenantId,
+      ownerId: null,
+      walletType: null,
+      accountType: System.payout,
+      currency: 'NGN',
+    }) as Promise<AccountDoc | null>;
   }
 
   it('holds funds on initiate: available drops, heldOutflow rises, ledger unchanged', async () => {
@@ -107,8 +113,13 @@ describe('Payouts', () => {
     const success = await status({ payoutId, ownerId, currency: 'NGN', amount: '10500', status: 'success' });
     const reversal = await status({ payoutId, ownerId, currency: 'NGN', amount: '10500', status: 'reversed' });
 
-    const entry = await ctx.db.db.collection('entries').findOne({ _id: reversal.body.data.entryId } as never);
-    expect(entry!.reversalOf).toBe(success.body.data.entryId);
+    // The raw driver does no mongoose casting, so a hex string here would silently
+    // match nothing and findOne would return null.
+    const entry = await ctx.db.db
+      .collection('entries')
+      .findOne({ _id: new Types.ObjectId(reversal.body.data.entryId) } as never);
+    expect(entry).not.toBeNull();
+    expect(String(entry!.reversalOf)).toBe(success.body.data.entryId);
   });
 
   it('re-debits available on reverse-failed after a failure (late success webhook)', async () => {

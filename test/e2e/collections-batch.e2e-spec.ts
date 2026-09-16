@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { createTestApp, TEST_API_KEY, TestApp } from "../utils/app";
 import request from 'supertest';
-import { AccountDoc, userAccountId } from "../../src/accounts/account";
+import { AccountDoc } from "../../src/accounts/account";
 import { toDecimal128 } from "../../src/common/money";
 
 describe('Collections batch settlement', () => {
@@ -140,9 +140,10 @@ describe('Collections batch settlement', () => {
     // Seed a refund/chargeback debt (this service has no refunds endpoint yet - the debt account
     // is provisioned as a side effect of collect's ensureUserWallet, so it's safe to write to
     // directly here). Debt (700) is bigger than the first item alone but smaller than the batch.
-    const refundChargebackAccountId = userAccountId('', ownerId, currency, 'collection', 'refund-chargeback');
+    // Reached by identity tuple rather than a rebuilt _id. matchedCount === 1 is what
+    // proves the tuple still addresses exactly one account.
     const setResult = await ctx.db.collection<AccountDoc>('accounts').updateOne(
-      { _id: refundChargebackAccountId },
+      { ownerId, currency, walletType: 'collection', accountType: 'refund-chargeback' },
       { $set: { balance: toDecimal128(-700n) } },
     );
     expect(setResult.matchedCount).toBe(1);

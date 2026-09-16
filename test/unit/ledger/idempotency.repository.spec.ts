@@ -1,9 +1,10 @@
 import { IdempotencyRepository } from '../../../src/ledger/idempotency.repository';
 import { IdempotencyDoc } from '../../../src/ledger/types';
+import { Types } from 'mongoose';
 import { MockModel, TENANT, mockModel, mockQuery, mockSession } from '../../mocks';
 
 const doc = (overrides: Partial<IdempotencyDoc> = {}): IdempotencyDoc => ({
-  _id: `${TENANT}:key-1`,
+  _id: new Types.ObjectId(),
   tenantId: TENANT,
   key: 'key-1',
   requestHash: 'hash',
@@ -26,19 +27,17 @@ describe('IdempotencyRepository', () => {
   it('creates its collection on boot and tolerates it already existing', async () => {
     await repo.onModuleInit();
     expect(model.createCollection).toHaveBeenCalled();
+    expect(model.syncIndexes).toHaveBeenCalled();
 
     model.createCollection.mockRejectedValue(new Error('exists'));
     await expect(repo.onModuleInit()).resolves.toBeUndefined();
   });
 
-  describe('id', () => {
-    it('scopes the key to the tenant', () => {
-      expect(IdempotencyRepository.id('t1', 'key-1')).toBe('t1:key-1');
-    });
-
-    it('lets two tenants reuse the same key', () => {
-      expect(IdempotencyRepository.id('t1', 'k')).not.toBe(IdempotencyRepository.id('t2', 'k'));
-    });
+  it('fails boot when the unique index cannot be synced', async () => {
+    // Without { tenantId, key } unique, two concurrent first-writers both insert, the
+    // replay branch never fires, and one idempotency key moves money twice.
+    model.syncIndexes.mockRejectedValue(new Error('index build failed'));
+    await expect(repo.onModuleInit()).rejects.toThrow('index build failed');
   });
 
   describe('hash', () => {
@@ -99,12 +98,12 @@ describe('IdempotencyRepository', () => {
   });
 
   describe('find', () => {
-    it('looks the record up by tenant-scoped id', async () => {
+    it('looks the record up by the tenant-scoped unique tuple', async () => {
       const record = doc();
       model.findOne.mockReturnValue(mockQuery(record));
 
       await expect(repo.find(TENANT, 'key-1')).resolves.toBe(record);
-      expect(model.findOne).toHaveBeenCalledWith({ _id: `${TENANT}:key-1` });
+      expect(model.findOne).toHaveBeenCalledWith({ tenantId: TENANT, key: 'key-1' });
     });
 
     it('resolves null when the key has never been used', async () => {

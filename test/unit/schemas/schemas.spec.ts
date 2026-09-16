@@ -9,6 +9,10 @@ import { Posting, PostingSchema } from '../../../src/ledger/schemas/posting.sche
 /** The index definitions a schema declares, as plain field-order objects. */
 const indexes = (schema: Schema) => schema.indexes().map(([fields]) => fields);
 
+/** The same, but keeping each index's options — which is where `unique` lives. */
+const indexSpecs = (schema: Schema) =>
+  schema.indexes().map(([fields, options]) => ({ fields, options }));
+
 const paths = (schema: Schema) => Object.keys(schema.paths);
 
 /** The default a @Prop declared for one path. Mongoose wraps an object default in a
@@ -36,8 +40,8 @@ describe('mongo schemas', () => {
   );
 
   describe('AccountSchema', () => {
-    it('declares a string _id, so deterministic account ids replace ObjectIds', () => {
-      expect(AccountSchema.path('_id').instance).toBe('String');
+    it('declares an ObjectId _id, minted by the server rather than built in application code', () => {
+      expect(AccountSchema.path('_id').instance).toBe('ObjectId');
     });
 
     it('holds the balance as Decimal128 and the OCC counter as a number', () => {
@@ -46,16 +50,26 @@ describe('mongo schemas', () => {
       expect(AccountSchema.path('sequence').instance).toBe('Number');
     });
 
-    it('defaults an account with no wallet type to the collection wallet', () => {
-      expect(defaultOf(AccountSchema, 'walletType')).toBe('collection');
+    it('defaults ownerId and walletType to null, so a system account keeps its tuple', () => {
+      // A 'collection' default here would be injected by setDefaultsOnInsert into a system
+      // account's unique-index tuple and silently corrupt it.
+      expect(defaultOf(AccountSchema, 'walletType')).toBeNull();
       expect(defaultOf(AccountSchema, 'ownerId')).toBeNull();
     });
 
-    it('indexes both the per-owner lookup and the system-account lookup', () => {
-      expect(indexes(AccountSchema)).toEqual([
-        { tenantId: 1, ownerId: 1, currency: 1, walletType: 1, accountType: 1 },
-        { tenantId: 1, kind: 1, currency: 1 },
-      ]);
+    it('makes the identity tuple unique and keeps the system-account lookup', () => {
+      const [identity, lookup] = indexSpecs(AccountSchema);
+      expect(identity.fields).toEqual({
+        tenantId: 1,
+        ownerId: 1,
+        currency: 1,
+        walletType: 1,
+        accountType: 1,
+      });
+      // Uniqueness of this tuple is what replaced the composite _id.
+      expect(identity.options).toMatchObject({ unique: true });
+      expect(lookup.fields).toEqual({ tenantId: 1, kind: 1, currency: 1 });
+      expect(lookup.options?.unique).toBeUndefined();
     });
   });
 
@@ -70,6 +84,8 @@ describe('mongo schemas', () => {
           'accountId',
           'ownerId',
           'walletType',
+          'accountType',
+          'kind',
           'currency',
           'direction',
           'amount',
@@ -81,6 +97,14 @@ describe('mongo schemas', () => {
           'createdAt',
         ]),
       );
+    });
+
+    it('carries the ids as ObjectIds and the denormalized ref type as strings', () => {
+      for (const path of ['_id', 'operationId', 'entryId', 'accountId']) {
+        expect(PostingSchema.path(path).instance).toBe('ObjectId');
+      }
+      expect(PostingSchema.path('accountType').instance).toBe('String');
+      expect(PostingSchema.path('kind').instance).toBe('String');
     });
 
     it('holds amounts as Decimal128 and nulls the user-only fields by default', () => {
@@ -95,12 +119,20 @@ describe('mongo schemas', () => {
       expect(indexes(PostingSchema)).toEqual([
         { accountId: 1, sequence: 1 },
         { operationId: 1 },
-        { tenantId: 1, reference: 1 },
+        // Serves referenceNetAmount; the old { tenantId, reference } index is its prefix.
+        { tenantId: 1, reference: 1, accountType: 1, currency: 1, operationType: 1 },
       ]);
     });
   });
 
   describe('EntrySchema', () => {
+    it('carries its ids and entry links as ObjectIds', () => {
+      expect(EntrySchema.path('_id').instance).toBe('ObjectId');
+      expect(EntrySchema.path('operationId').instance).toBe('ObjectId');
+      expect(EntrySchema.path('reversalOf').instance).toBe('ObjectId');
+      expect(EntrySchema.path('postingIds').instance).toBe('Array');
+    });
+
     it('defaults postingIds to an empty list and the optional links to null', () => {
       expect(defaultOf(EntrySchema, 'postingIds')).toEqual([]);
       expect(defaultOf(EntrySchema, 'reference')).toBeNull();
@@ -119,6 +151,13 @@ describe('mongo schemas', () => {
       expect(defaultOf(IdempotencySchema, 'result')).toBeNull();
       expect(IdempotencySchema.get('minimize')).toBe(false);
     });
+
+    it('makes the tenant-scoped key unique, which is what the replay branch relies on', () => {
+      expect(IdempotencySchema.path('_id').instance).toBe('ObjectId');
+      const [key] = indexSpecs(IdempotencySchema);
+      expect(key.fields).toEqual({ tenantId: 1, key: 1 });
+      expect(key.options).toMatchObject({ unique: true });
+    });
   });
 
   describe('OutboxSchema', () => {
@@ -129,8 +168,14 @@ describe('mongo schemas', () => {
       expect(OutboxSchema.get('minimize')).toBe(false);
     });
 
-    it('indexes the publisher poll', () => {
-      expect(indexes(OutboxSchema)).toEqual([{ published: 1, createdAt: 1 }]);
+    it('indexes the publisher poll and makes dedupeId unique', () => {
+      const [poll, dedupe] = indexSpecs(OutboxSchema);
+      expect(poll.fields).toEqual({ published: 1, createdAt: 1 });
+      expect(dedupe.fields).toEqual({ dedupeId: 1 });
+      expect(dedupe.options).toMatchObject({ unique: true });
+      expect(OutboxSchema.path('_id').instance).toBe('ObjectId');
+      expect(OutboxSchema.path('operationId').instance).toBe('ObjectId');
+      expect(OutboxSchema.path('dedupeId').instance).toBe('String');
     });
   });
 

@@ -13,6 +13,7 @@ export class IdempotencyRepository implements OnModuleInit {
 
   async onModuleInit(): Promise<void> {
     await this.model.createCollection().catch(() => undefined)
+    await this.model.syncIndexes();
   }
 
   static hash(operationType: string, payload: unknown): string {
@@ -23,13 +24,9 @@ export class IdempotencyRepository implements OnModuleInit {
       .digest('hex');
   }
 
-  static id(tenantId: string, key: string): string {
-    return `${tenantId}:${key}`;
-  }
-
   async find(tenantId: string, key: string):Promise<IdempotencyDoc | null> {
     return this.model
-      .findOne({ _id: IdempotencyRepository.id(tenantId, key) })
+      .findOne({ tenantId, key })
       .lean<IdempotencyDoc>()
       .exec();
   }

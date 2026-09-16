@@ -1,11 +1,11 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
-import { SchemaTypes } from "mongoose";
+import { SchemaTypes, Types } from "mongoose";
 
 
 @Schema({ collection: 'idempotency', versionKey: false, minimize: false })
 export class Idempotency {
-  @Prop({ type: String })
-  _id: string;
+  @Prop({ type: SchemaTypes.ObjectId })
+  _id: Types.ObjectId;
 
   @Prop({ type: String })
   tenantId: string;
@@ -30,3 +30,5 @@ export class Idempotency {
 }
 
 export const IdempotencySchema = SchemaFactory.createForClass(Idempotency);
+
+IdempotencySchema.index({ tenantId: 1, key: 1 }, { unique: true });

@@ -1,7 +1,7 @@
 import { Injectable, OnModuleInit } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { ClientSession, Model } from "mongoose";
-import { AccountDoc, systemAccountId, USER_ACCOUNT_TYPES, userAccountId, WalletType } from "./account";
+import { AccountDoc, USER_ACCOUNT_TYPES, WalletType } from "./account";
 import { Account } from "./account.schema";
 import { fromDecimal128, toDecimal128 } from "../common/money";
 import { WalletBalance } from "../wallets/dto";
@@ -12,7 +12,7 @@ export class AccountsRepository implements OnModuleInit {
 
   async onModuleInit(): Promise<void> {
     await this.model.createCollection().catch(() => undefined);
-    await this.model.syncIndexes().catch(() => undefined);
+    await this.model.syncIndexes();
   }
 
   /** Provision user sub-accounts if they do not already exist.
@@ -27,30 +27,22 @@ export class AccountsRepository implements OnModuleInit {
     session?: ClientSession
   ): Promise<void> {
     const now = new Date();
-    const ops = USER_ACCOUNT_TYPES.map((accountType) => {
-      const _id = userAccountId(tenantId, ownerId, currency, walletType, accountType);
-      return {
-        updateOne: {
-          filter: { _id },
-          update: {
-            $setOnInsert: {
-              tenantId,
-              ownerId,
-              currency,
-              walletType,
-              accountType,
-              kind: 'user' as const,
-              balance: toDecimal128(0n),
-              version: 0,
-              sequence: 0,
-              createdAt: now,
-              updatedAt: now
-            },
+    const ops = USER_ACCOUNT_TYPES.map((accountType) => ({
+      updateOne: {
+        filter: { tenantId, ownerId, currency, walletType, accountType },
+        update: {
+          $setOnInsert: {
+            kind: 'user' as const,
+            balance: toDecimal128(0n),
+            version: 0,
+            sequence: 0,
+            createdAt: now,
+            updatedAt: now
           },
-          upsert: true,
-        }
-      };
-    });
+        },
+        upsert: true,
+      }
+    }));
     await this.model.bulkWrite(ops, { session })
   }
 
@@ -60,17 +52,11 @@ export class AccountsRepository implements OnModuleInit {
     currency: string,
     session?: ClientSession
   ): Promise<void> {
-    const _id = systemAccountId(tenantId, name, currency);
     const now = new Date();
     await this.model.updateOne(
-      { _id },
+      { tenantId, ownerId: null, currency, walletType: null, accountType: name },
       {
         $setOnInsert: {
-          tenantId,
-          ownerId: null,
-          currency,
-          walletType: null,
-          accountType: name,
           kind: 'system' as const,
           balance: toDecimal128(0n),
           version: 0,
@@ -81,20 +67,6 @@ export class AccountsRepository implements OnModuleInit {
       },
       { upsert: true, session }
     )
-  }
-
-  async findById(id: string, session?: ClientSession): Promise<AccountDoc | null> {
-    return this.model.findOne({ _id: id }, null, { session }).lean<AccountDoc>().exec()
-  }
-
-  async exists(
-    tenantId: string,
-    ownerId: string,
-    currency: string,
-    walletType: WalletType
-  ): Promise<boolean> {
-    const id = userAccountId(tenantId, ownerId, currency, walletType, 'available')
-    return (await this.model.exists({ _id: id })) !== null
   }
 
   async balanceBreakdown(
