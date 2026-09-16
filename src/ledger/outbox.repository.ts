@@ -1,9 +1,8 @@
 import { Injectable, OnModuleInit } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
-import { ClientSession, Model } from "mongoose";
+import { ClientSession, Model, Types } from "mongoose";
 import { OutboxDoc, OutboxEventI } from "./types";
 import { Outbox } from "./schemas/outbox.schema";
-import { randomUUID } from "crypto";
 
 @Injectable()
 export class OutboxRepository implements OnModuleInit {
@@ -11,20 +10,22 @@ export class OutboxRepository implements OnModuleInit {
 
   async onModuleInit(): Promise<void> {
     await this.model.createCollection().catch(() => undefined);
+    await this.model.syncIndexes();
   }
 
   async write(
     tenantId: string,
-    operationId: string,
+    operationId: Types.ObjectId,
     event: OutboxEventI,
+    index: number,
     session: ClientSession,
   ): Promise<OutboxDoc> {
     const doc: OutboxDoc = {
-      _id: randomUUID(),
+      _id: new Types.ObjectId(),
       tenantId,
       type: event.type,
       schemaVersion: event.schemaVersion ?? 1,
-      dedupeId: randomUUID(),
+      dedupeId: `${operationId.toHexString()}:${event.type}:${index}`,
       operationId,
       payload: event.payload,
       published: false,

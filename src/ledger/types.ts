@@ -1,5 +1,5 @@
 import { Types } from "mongoose";
-import { AccountRef, WalletType } from "../accounts/account";
+import { AccountKind, AccountRef, WalletType } from "../accounts/account";
 
 export type Direction = 'debit' | 'credit';
 
@@ -26,13 +26,15 @@ export function signedDelta(direction: Direction, amount: bigint): bigint {
 }
 
 export interface PostingDoc {
-  _id: string;
+  _id: Types.ObjectId;
   tenantId: string;
-  operationId: string;
-  entryId: string;
-  accountId: string;
+  operationId: Types.ObjectId;
+  entryId: Types.ObjectId;
+  accountId: Types.ObjectId;
   ownerId: string | null;
   walletType: WalletType | null;
+  accountType: string;
+  kind: AccountKind;
   currency: string;
   direction: Direction;
   amount: Types.Decimal128;
@@ -45,20 +47,20 @@ export interface PostingDoc {
 }
 
 export interface EntryDoc {
-  _id: string;
+  _id: Types.ObjectId;
   tenantId: string;
-  operationId: string;
+  operationId: Types.ObjectId;
   currency: string;
   operationType: string;
-  postingIds: string[];
+  postingIds: Types.ObjectId[];
   reference: string | null;
   actor: string | null;
-  reversalOf: string | null;
+  reversalOf: Types.ObjectId | null;
   createdAt: Date;
 }
 
 export interface IdempotencyDoc {
-  _id: string;
+  _id: Types.ObjectId;
   tenantId: string;
   key: string;
   requestHash: string;
@@ -69,12 +71,12 @@ export interface IdempotencyDoc {
 }
 
 export interface OutboxDoc {
-  _id: string;
+  _id: Types.ObjectId;
   tenantId: string;
   type: string;
   schemaVersion: number;
   dedupeId: string;
-  operationId: string;
+  operationId: Types.ObjectId;
   payload: Record<string, unknown>;
   published: boolean;
   publishedAt: Date | null;

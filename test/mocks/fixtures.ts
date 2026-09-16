@@ -34,7 +34,7 @@ export function walletBalance(overrides: Partial<WalletBalance> = {}): WalletBal
 export function accountDoc(overrides: Partial<AccountDoc> = {}): AccountDoc {
   const now = new Date('2026-01-01T00:00:00.000Z');
   return {
-    _id: 'account-id',
+    _id: new Types.ObjectId(),
     tenantId: TENANT,
     ownerId: OWNER,
     currency: CURRENCY,
@@ -57,7 +57,6 @@ export function userAccount(
   overrides: Partial<AccountDoc> = {},
 ): AccountDoc {
   return accountDoc({
-    _id: `${TENANT}:user:${OWNER}:${CURRENCY}:collection:${accountType}`,
     accountType,
     balance: Types.Decimal128.fromString(balance.toString()),
     ...overrides,

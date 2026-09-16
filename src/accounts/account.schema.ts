@@ -2,18 +2,10 @@ import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { SchemaTypes, Types } from "mongoose";
 import type { AccountKind, WalletType } from "./account";
 
-/** The `accounts` collection. `_id` is the deterministic id built by
- * userAccountId()/systemAccountId(), never an ObjectId.
- *
- * `version` is the application's own OCC counter (guarded on every user-account
- * update in LedgerService) — not mongoose's `__v`, which is disabled. Timestamps
- * are written explicitly by the repositories inside transactions, so mongoose's
- * `timestamps` option is deliberately left off.
- */
 @Schema({ collection: 'accounts', versionKey: false })
 export class Account {
-  @Prop({ type: String })
-  _id: string;
+  @Prop({ type: SchemaTypes.ObjectId })
+  _id: Types.ObjectId;
 
   @Prop({ type: String })
   tenantId: string;
@@ -24,7 +16,7 @@ export class Account {
   @Prop({ type: String })
   currency: string;
 
-  @Prop({ type: String, default: 'collection' })
+  @Prop({ type: String, default: null })
   walletType: WalletType | null;
 
   @Prop({ type: String })
@@ -51,5 +43,8 @@ export class Account {
 
 export const AccountSchema = SchemaFactory.createForClass(Account);
 
-AccountSchema.index({ tenantId: 1, ownerId: 1, currency: 1, walletType: 1, accountType: 1 });
+AccountSchema.index(
+  { tenantId: 1, ownerId: 1, currency: 1, walletType: 1, accountType: 1 },
+  { unique: true }
+);
 AccountSchema.index({ tenantId: 1, kind: 1, currency: 1 });

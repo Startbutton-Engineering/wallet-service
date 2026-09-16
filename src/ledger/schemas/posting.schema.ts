@@ -1,30 +1,36 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { SchemaTypes, Types } from "mongoose";
 import type { Direction } from "../types";
-import type { WalletType } from "../../accounts/account";
+import type { AccountKind, WalletType } from "../../accounts/account";
 
 @Schema({ collection: 'postings', versionKey: false })
 export class Posting {
-  @Prop({ type: String })
-  _id: string;
+  @Prop({ type: SchemaTypes.ObjectId })
+  _id: Types.ObjectId;
 
   @Prop({ type: String })
   tenantId: string;
 
-  @Prop({ type: String })
-  operationId: string;
+  @Prop({ type: SchemaTypes.ObjectId })
+  operationId: Types.ObjectId;
 
-  @Prop({ type: String })
-  entryId: string;
+  @Prop({ type: SchemaTypes.ObjectId })
+  entryId: Types.ObjectId;
 
-  @Prop({ type: String })
-  accountId: string;
+  @Prop({ type: SchemaTypes.ObjectId })
+  accountId: Types.ObjectId;
 
   @Prop({ type: String, default: null })
   ownerId: string | null;
 
   @Prop({ type: String, default: null })
   walletType: WalletType | null;
+
+  @Prop({ type: String })
+  accountType: string;
+
+  @Prop({ type: String })
+  kind: AccountKind;
 
   @Prop({ type: String })
   currency: string;
@@ -58,4 +64,4 @@ export const PostingSchema = SchemaFactory.createForClass(Posting);
 
 PostingSchema.index({ accountId: 1, sequence: 1 });
 PostingSchema.index({ operationId: 1 });
-PostingSchema.index({ tenantId: 1, reference: 1 });
+PostingSchema.index({ tenantId: 1, reference: 1, accountType: 1, currency: 1, operationType: 1 });

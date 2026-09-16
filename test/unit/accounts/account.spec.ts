@@ -1,38 +1,71 @@
+import { Types } from 'mongoose';
 import {
   accountRef,
+  refKey,
+  refOf,
   System,
-  systemAccountId,
   USER_ACCOUNT_TYPES,
-  userAccountId,
   WALLET_TYPES,
 } from '../../../src/accounts/account';
+import { accountDoc } from '../../mocks';
 
-describe('account ids', () => {
-  it('builds a user account id from every part, in a fixed order', () => {
-    expect(userAccountId('t1', 'm1', 'NGN', 'collection', 'available')).toBe(
-      't1:user:m1:NGN:collection:available',
+describe('refKey', () => {
+  it('builds a key from every part of a user ref', () => {
+    expect(refKey(accountRef.user('m1', 'NGN', 'collection', 'available'))).toBe(
+      'u\0m1\0NGN\0collection\0available',
     );
   });
 
-  it('keeps wallet types and account types apart in the id', () => {
-    expect(userAccountId('t1', 'm1', 'NGN', 'payout', 'held-outflow')).toBe(
-      't1:user:m1:NGN:payout:held-outflow',
+  it('keeps wallet types and account types apart', () => {
+    expect(refKey(accountRef.user('m1', 'NGN', 'payout', 'held-outflow'))).toBe(
+      'u\0m1\0NGN\0payout\0held-outflow',
     );
   });
 
-  it('builds a system account id without an owner or wallet type', () => {
-    expect(systemAccountId('t1', System.collection, 'NGN')).toBe('t1:system:external:collection:NGN');
+  it('builds a system key without an owner or wallet type', () => {
+    expect(refKey(accountRef.systemCollection('NGN'))).toBe('s\0external:collection\0NGN');
   });
 
-  it('gives every account type a distinct id for one owner and wallet', () => {
-    const ids = USER_ACCOUNT_TYPES.map((type) => userAccountId('t1', 'm1', 'NGN', 'collection', type));
-    expect(new Set(ids).size).toBe(USER_ACCOUNT_TYPES.length);
+  it('gives every account type a distinct key for one owner and wallet', () => {
+    const keys = USER_ACCOUNT_TYPES.map((type) => refKey(accountRef.user('m1', 'NGN', 'collection', type)));
+    expect(new Set(keys).size).toBe(USER_ACCOUNT_TYPES.length);
   });
 
-  it('keeps tenants apart', () => {
-    expect(userAccountId('t1', 'm1', 'NGN', 'collection', 'available')).not.toBe(
-      userAccountId('t2', 'm1', 'NGN', 'collection', 'available'),
+  it('never collides a system name containing a colon with a user ref', () => {
+    expect(refKey(accountRef.system('external:collection', 'NGN'))).not.toBe(
+      refKey(accountRef.user('external', 'NGN', 'collection', 'available')),
     );
+  });
+});
+
+describe('refOf', () => {
+  it('round-trips a user account document back to its ref', () => {
+    const ref = accountRef.user('m1', 'NGN', 'payout', 'reserve');
+    const doc = accountDoc({
+      kind: 'user',
+      ownerId: 'm1',
+      currency: 'NGN',
+      walletType: 'payout',
+      accountType: 'reserve',
+    });
+
+    expect(refOf(doc)).toEqual(ref);
+    expect(refKey(refOf(doc))).toBe(refKey(ref));
+  });
+
+  it('round-trips a system account document back to its ref', () => {
+    const ref = accountRef.systemCollection('NGN');
+    const doc = accountDoc({
+      _id: new Types.ObjectId(),
+      kind: 'system',
+      ownerId: null,
+      walletType: null,
+      accountType: System.collection,
+      currency: 'NGN',
+    });
+
+    expect(refOf(doc)).toEqual(ref);
+    expect(refKey(refOf(doc))).toBe(refKey(ref));
   });
 });
 

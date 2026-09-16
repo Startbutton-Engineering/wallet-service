@@ -1,4 +1,4 @@
-import { AccountRef, systemAccountId, userAccountId } from "../../../src/accounts/account";
+import { AccountRef, accountRef, refKey } from "../../../src/accounts/account";
 import { AppError, ErrorCode } from "../../../src/common/errors";
 import { PrePostContext } from "../../../src/ledger/ledger.service";
 import { Direction, signedDelta } from "../../../src/ledger/types";
@@ -8,7 +8,6 @@ import {
   TransitionParams,
 } from "../../../src/payouts/payout-transitions";
 
-const TENANT = 't1';
 const PARAMS: TransitionParams = {
   payoutId: 'po-1',
   ownerId: 'm1',
@@ -18,16 +17,10 @@ const PARAMS: TransitionParams = {
 
 interface FakePosting {
   reference: string;
-  accountId: string;
+  accountKey: string;
   operationType: string;
   direction: Direction;
   amount: bigint;
-}
-
-function accountId(ref: AccountRef): string {
-  return ref.kind === 'user'
-    ? userAccountId(TENANT, ref.ownerId, ref.currency, ref.walletType, ref.accountType)
-    : systemAccountId(TENANT, ref.name, ref.currency);
 }
 
 /** An in-memory stand-in for the posting log the real PrePostContext reads. Transitions are
@@ -41,9 +34,9 @@ class FakeLedger {
     session: undefined as never,
     readBalance: () => { throw new Error('not used by payout transitions') },
     referenceNetAmount: async (reference: string, account: AccountRef, operationTypes?: string[]) => {
-      const id = accountId(account);
+      const key = refKey(account);
       return this.postings
-        .filter((p) => p.reference === reference && p.accountId === id)
+        .filter((p) => p.reference === reference && p.accountKey === key)
         .filter((p) => !operationTypes || operationTypes.includes(p.operationType))
         .reduce((sum, p) => sum + signedDelta(p.direction, p.amount), 0n);
     },
@@ -63,7 +56,7 @@ class FakeLedger {
       for (const posting of entry.postings) {
         this.postings.push({
           reference: params.payoutId,
-          accountId: accountId(posting.account),
+          accountKey: refKey(posting.account),
           operationType: transition.operationType,
           direction: posting.direction,
           amount: posting.amount,
@@ -99,30 +92,30 @@ describe('payout transitions', () => {
     it('initiate moves available into held-outflow and guards available', async () => {
       const plan = await ledger.planOnly('initiated');
       expect(plan.entries).toHaveLength(1);
-      expect(plan.entries[0].postings.map((p) => [accountId(p.account), p.direction, p.amount])).toEqual([
-        [userAccountId(TENANT, 'm1', 'NGN', 'payout', 'available'), 'debit', 10_500n],
-        [userAccountId(TENANT, 'm1', 'NGN', 'payout', 'held-outflow'), 'credit', 10_500n],
+      expect(plan.entries[0].postings.map((p) => [refKey(p.account), p.direction, p.amount])).toEqual([
+        [refKey(accountRef.user('m1', 'NGN', 'payout', 'available')), 'debit', 10_500n],
+        [refKey(accountRef.user('m1', 'NGN', 'payout', 'held-outflow')), 'credit', 10_500n],
       ]);
-      expect(plan.guardNegative.map(accountId)).toEqual([
-        userAccountId(TENANT, 'm1', 'NGN', 'payout', 'available'),
+      expect(plan.guardNegative.map(refKey)).toEqual([
+        refKey(accountRef.user('m1', 'NGN', 'payout', 'available')),
       ]);
     });
 
     it('success moves held-outflow to the external payout account', async () => {
       await ledger.apply('initiated');
       const plan = await ledger.planOnly('success');
-      expect(plan.entries[0].postings.map((p) => [accountId(p.account), p.direction])).toEqual([
-        [userAccountId(TENANT, 'm1', 'NGN', 'payout', 'held-outflow'), 'debit'],
-        [systemAccountId(TENANT, 'external:payout', 'NGN'), 'credit'],
+      expect(plan.entries[0].postings.map((p) => [refKey(p.account), p.direction])).toEqual([
+        [refKey(accountRef.user('m1', 'NGN', 'payout', 'held-outflow')), 'debit'],
+        [refKey(accountRef.system('external:payout', 'NGN')), 'credit'],
       ]);
     });
 
     it('failure returns held-outflow to available', async () => {
       await ledger.apply('initiated');
       const plan = await ledger.planOnly('failed');
-      expect(plan.entries[0].postings.map((p) => [accountId(p.account), p.direction])).toEqual([
-        [userAccountId(TENANT, 'm1', 'NGN', 'payout', 'held-outflow'), 'debit'],
-        [userAccountId(TENANT, 'm1', 'NGN', 'payout', 'available'), 'credit'],
+      expect(plan.entries[0].postings.map((p) => [refKey(p.account), p.direction])).toEqual([
+        [refKey(accountRef.user('m1', 'NGN', 'payout', 'held-outflow')), 'debit'],
+        [refKey(accountRef.user('m1', 'NGN', 'payout', 'available')), 'credit'],
       ]);
     });
 
@@ -131,9 +124,9 @@ describe('payout transitions', () => {
       const successEntry = await ledger.apply('success');
       const plan = await ledger.planOnly('reversed');
 
-      expect(plan.entries[0].postings.map((p) => [accountId(p.account), p.direction])).toEqual([
-        [systemAccountId(TENANT, 'external:payout', 'NGN'), 'debit'],
-        [userAccountId(TENANT, 'm1', 'NGN', 'payout', 'available'), 'credit'],
+      expect(plan.entries[0].postings.map((p) => [refKey(p.account), p.direction])).toEqual([
+        [refKey(accountRef.system('external:payout', 'NGN')), 'debit'],
+        [refKey(accountRef.user('m1', 'NGN', 'payout', 'available')), 'credit'],
       ]);
       expect(plan.reversalOf).toBe(successEntry);
       expect(plan.guardNegative).toEqual([]);
@@ -144,12 +137,12 @@ describe('payout transitions', () => {
       await ledger.apply('failed');
       const plan = await ledger.planOnly('reverse-failed');
 
-      expect(plan.entries[0].postings.map((p) => [accountId(p.account), p.direction])).toEqual([
-        [userAccountId(TENANT, 'm1', 'NGN', 'payout', 'available'), 'debit'],
-        [systemAccountId(TENANT, 'external:payout', 'NGN'), 'credit'],
+      expect(plan.entries[0].postings.map((p) => [refKey(p.account), p.direction])).toEqual([
+        [refKey(accountRef.user('m1', 'NGN', 'payout', 'available')), 'debit'],
+        [refKey(accountRef.system('external:payout', 'NGN')), 'credit'],
       ]);
-      expect(plan.guardNegative.map(accountId)).toEqual([
-        userAccountId(TENANT, 'm1', 'NGN', 'payout', 'available'),
+      expect(plan.guardNegative.map(refKey)).toEqual([
+        refKey(accountRef.user('m1', 'NGN', 'payout', 'available')),
       ]);
     });
 

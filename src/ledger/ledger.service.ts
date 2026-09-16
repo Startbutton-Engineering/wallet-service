@@ -1,13 +1,12 @@
 import { Injectable, OnModuleInit } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
-import { ClientSession, Model, QueryFilter, mongo } from "mongoose";
+import { ClientSession, Model, QueryFilter, Types, mongo } from "mongoose";
 import { EntryDoc, EntryI, OutboxEventI, PostingDoc, signedDelta } from "./types";
 import { WalletBalance } from "../wallets/dto";
 import { IdempotencyRepository } from "./idempotency.repository";
 import { AppError, OccConflict } from "../common/errors";
-import { randomUUID } from "crypto";
 import { AccountsRepository } from "../accounts/accounts.repository";
-import { AccountDoc, AccountRef, systemAccountId, userAccountId, WalletType } from "../accounts/account";
+import { AccountDoc, AccountRef, refKey, refOf, WalletType } from "../accounts/account";
 import { Account } from "../accounts/account.schema";
 import { Posting } from "./schemas/posting.schema";
 import { Entry } from "./schemas/entry.schema";
@@ -64,6 +63,8 @@ export class LedgerService implements OnModuleInit {
   async onModuleInit(): Promise<void> {
     await this.postings.createCollection().catch(() => undefined);
     await this.entries.createCollection().catch(() => undefined);
+    await this.postings.syncIndexes();
+    await this.entries.syncIndexes();
   }
 
   async post<T>(args: PostArgs<T>): Promise<T> {
@@ -117,7 +118,7 @@ export class LedgerService implements OnModuleInit {
     session: ClientSession
   ): Promise<T> {
     const { tenantId } = args;
-    const operationId = randomUUID();
+    const operationId = new Types.ObjectId();
 
     const PrePostContext: PrePostContext = {
       session,
@@ -129,8 +130,27 @@ export class LedgerService implements OnModuleInit {
         return accountBalance!
       },
       referenceNetAmount: async (reference, account, operationTypes) => {
-        const accountId = this.resolveId(tenantId, account);
-        const filter: QueryFilter<PostingDoc> = { tenantId, reference, accountId };
+        // Filters on the denormalized ref fields rather than accountId. That is what lets
+        // this run during generateLedgerOps, i.e. before ensureAccounts/loadAccounts have
+        // provisioned anything and before any account _id exists to resolve.
+        const filter: QueryFilter<PostingDoc> =
+          account.kind === 'user'
+            ? {
+                tenantId,
+                reference,
+                kind: 'user',
+                ownerId: account.ownerId,
+                currency: account.currency,
+                walletType: account.walletType,
+                accountType: account.accountType
+              }
+            : {
+                tenantId,
+                reference,
+                kind: 'system',
+                accountType: account.name,
+                currency: account.currency
+              };
         if (operationTypes) filter.operationType = { $in: operationTypes };
         const postings = await this.postings
           .find(filter, null, { session })
@@ -144,7 +164,7 @@ export class LedgerService implements OnModuleInit {
           .sort({ createdAt: 1 })
           .lean<EntryDoc[]>()
           .exec();
-        return entries.map((e) => e._id);
+        return entries.map((e) => e._id.toHexString());
       }
     }
 
@@ -154,7 +174,7 @@ export class LedgerService implements OnModuleInit {
     // Provision and load every related accounts
     const accountRefs = legderOperation.entries.flatMap((entry) => entry.postings.map((posting) => posting.account));
     await this.ensureAccounts(tenantId, accountRefs, session);
-    const accountsById = await this.loadAccounts(tenantId, accountRefs, session);
+    const accountsByRef = await this.loadAccounts(tenantId, accountRefs, session);
 
     // Compute per-account new balance
     const postingDocs: PostingDoc[] = [];
@@ -162,14 +182,15 @@ export class LedgerService implements OnModuleInit {
     const finalBalances = new Map<string, { balance: bigint; sequence: number; version: number}>();
 
     for (const entry of legderOperation.entries) {
-      const entryId = randomUUID();
-      const postingIds: string[] = [];
+      const entryId = new Types.ObjectId();
+      const postingIds: Types.ObjectId[] = [];
       const reference = entry.reference ?? args.reference ?? null;
       const operationType = entry.operationType ?? args.operationType;
       for (const posting of entry.postings) {
-        const accountId = this.resolveId(tenantId, posting.account);
-        const doc = accountsById.get(accountId)!;
-        const state = finalBalances.get(accountId) ?? {
+        const key = refKey(posting.account);
+        const doc = accountsByRef.get(key);
+        if (!doc) throw new Error(`Account was not provisioned for posting: ${key}`);
+        const state = finalBalances.get(key) ?? {
           balance: fromDecimal128(doc.balance),
           sequence: doc.sequence,
           version: doc.version,
@@ -178,18 +199,20 @@ export class LedgerService implements OnModuleInit {
         state.balance += signedDelta(posting.direction, posting.amount);
         const isUser = doc.kind === 'user';
         if (isUser) state.sequence += 1;
-        finalBalances.set(accountId, state);
+        finalBalances.set(key, state);
 
-        const postingId = randomUUID();
+        const postingId = new Types.ObjectId();
         postingIds.push(postingId);
         postingDocs.push({
           _id: postingId,
           tenantId,
           operationId,
           entryId,
-          accountId,
+          accountId: doc._id,
           ownerId: doc.ownerId,
           walletType: doc.walletType,
+          accountType: doc.accountType,
+          kind: doc.kind,
           currency: entry.currency,
           direction: posting.direction,
           amount: toDecimal128(posting.amount),
@@ -211,17 +234,19 @@ export class LedgerService implements OnModuleInit {
         postingIds,
         reference,
         actor: args.actor ?? null,
-        reversalOf: legderOperation.reversalOf ?? null,
+        reversalOf: legderOperation.reversalOf
+          ? new Types.ObjectId(legderOperation.reversalOf)
+          : null,
         createdAt: new Date(),
       })
     }
 
     // Overdraft guard: some accounts must not end negative
     for (const ref of legderOperation.guardNegative ?? []) {
-      const id = this.resolveId(tenantId, ref);
-      const state = finalBalances.get(id);
+      const key = refKey(ref);
+      const state = finalBalances.get(key);
       if (state && state.balance < 0n) {
-        const doc = accountsById.get(id)!;
+        const doc = accountsByRef.get(key)!;
         throw AppError.insufficientFunds({
           accountType: doc.accountType,
           currency: doc.currency,
@@ -232,11 +257,11 @@ export class LedgerService implements OnModuleInit {
     }
 
     // Apply account updates: user accounts OCC-guarded, system read-modify-write
-    for (const [accountId, state] of finalBalances) {
-      const doc = accountsById.get(accountId)!;
+    for (const [key, state] of finalBalances) {
+      const doc = accountsByRef.get(key)!;
       if (doc.kind === 'user') {
         const res = await this.accounts.updateOne(
-          { _id: accountId, version: doc.version },
+          { _id: doc._id, version: doc.version },
           {
             $set: {
               balance: toDecimal128(state.balance),
@@ -250,7 +275,7 @@ export class LedgerService implements OnModuleInit {
         if (res.matchedCount === 0) throw new OccConflict();
       } else {
         await this.accounts.updateOne(
-          { _id: accountId },
+          { _id: doc._id },
           { $set: { balance: toDecimal128(state.balance), updatedAt: new Date() } },
           { session }
         )
@@ -261,8 +286,8 @@ export class LedgerService implements OnModuleInit {
     await this.entries.insertMany(entryDocs, { session });
 
     const post: PostPostingContext = {
-      operationId,
-      entryIds: entryDocs.map((e) => e._id),
+      operationId: operationId.toHexString(),
+      entryIds: entryDocs.map((e) => e._id.toHexString()),
       accountBalance: async (ownerId, currency, walletType) => {
         const b = await this.accountsRepo.balanceBreakdown(
           tenantId, ownerId, currency, walletType, session
@@ -274,12 +299,13 @@ export class LedgerService implements OnModuleInit {
     if (legderOperation.sideEffect) await legderOperation.sideEffect(post);
     const response = await legderOperation.buildResponse(post);
     const events = await legderOperation.buildEvent(post);
-    for (const event of Array.isArray(events) ? events : [events]){
-      await this.outboxRepo.write(tenantId, operationId, event, session);
+    const eventList = Array.isArray(events) ? events : [events];
+    for (const [index, event] of eventList.entries()) {
+      await this.outboxRepo.write(tenantId, operationId, event, index, session);
     }
     await this.idempotency.insert(
       {
-        _id: IdempotencyRepository.id(tenantId, args.idempotencyKey),
+        _id: new Types.ObjectId(),
         tenantId,
         key: args.idempotencyKey,
         requestHash,
@@ -297,7 +323,15 @@ export class LedgerService implements OnModuleInit {
   private validatePostingBalanced(entries: EntryI[]): void {
     for (const entry of entries) {
       let net = 0n;
-      for (const posting of entry.postings) net += signedDelta(posting.direction, posting.amount);
+      for (const posting of entry.postings) {
+        if (posting.account.currency !== entry.currency) {
+          throw AppError.validation('Posting account currency must match entry currency', {
+            entryCurrency: entry.currency,
+            accountCurrency: posting.account.currency,
+          });
+        }
+        net += signedDelta(posting.direction, posting.amount);
+      }
       if (net !== 0n) {
         throw AppError.validation('Entry is not balanced (debits must equal credits)', {
           currency: entry.currency,
@@ -308,12 +342,6 @@ export class LedgerService implements OnModuleInit {
         throw AppError.validation('Posting amounts must be positive')
       }
     }
-  }
-
-  private resolveId(tenantId: string, ref: AccountRef): string {
-    return ref.kind === 'user'
-      ? userAccountId(tenantId, ref.ownerId, ref.currency, ref.walletType, ref.accountType)
-      : systemAccountId(tenantId, ref.name, ref.currency);
   }
 
   private async ensureAccounts(
@@ -342,17 +370,36 @@ export class LedgerService implements OnModuleInit {
     }
   }
 
+  /** Loads every account the operation touches, keyed by refKey(). */
   private async loadAccounts(
     tenantId: string,
     refs: AccountRef[],
     session: ClientSession,
   ): Promise<Map<string, AccountDoc>> {
-    const ids = [...new Set(refs.map((r) => this.resolveId(tenantId, r)))];
+    const branches = new Map<string, QueryFilter<AccountDoc>>();
+    for (const ref of refs) {
+      if (ref.kind === 'user') {
+        branches.set(`u\0${ref.ownerId}\0${ref.currency}\0${ref.walletType}`, {
+          ownerId: ref.ownerId,
+          currency: ref.currency,
+          walletType: ref.walletType
+        });
+      } else {
+        branches.set(`s\0${ref.name}\0${ref.currency}`, {
+          ownerId: null,
+          walletType: null,
+          accountType: ref.name,
+          currency: ref.currency
+        });
+      }
+    }
+    if (branches.size === 0) return new Map();
+
     const docs = await this.accounts
-      .find({ _id: { $in: ids }}, null, { session })
+      .find({ tenantId, $or: [...branches.values()] }, null, { session })
       .lean<AccountDoc[]>()
       .exec();
-    return new Map(docs.map((d) => [d._id, d]))
+    return new Map(docs.map((d) => [refKey(refOf(d)), d]))
   }
 }
 
