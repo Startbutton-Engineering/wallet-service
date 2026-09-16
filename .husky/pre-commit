@@ -1,0 +1,3 @@
+# Run the unit tests that cover the staged files. lint-staged passes the staged
+# paths to jest --findRelatedTests, so only the affected specs run.
+npx lint-staged

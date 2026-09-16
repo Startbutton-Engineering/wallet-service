@@ -1,0 +1,3 @@
+# The build is the gate for pushing: it type-checks and compiles the whole project,
+# catching anything the per-file pre-commit run could not see.
+npm run build

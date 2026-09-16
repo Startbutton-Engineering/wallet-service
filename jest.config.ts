@@ -47,6 +47,10 @@ const config: Config = {
     'apps/**/*.(t|j)s',
   ],
   coverageDirectory: './coverage',
+  // The suite covers every source file; this keeps a regression from slipping past unnoticed.
+  coverageThreshold: {
+    global: { statements: 95, branches: 95, functions: 95, lines: 95 },
+  },
   testEnvironment: 'node',
   // The e2e specs share a single-node mongodb-memory-server replica set; running
   // multiple Nest app instances against it concurrently causes flaky transaction
