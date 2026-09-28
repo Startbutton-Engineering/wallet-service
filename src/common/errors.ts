@@ -24,6 +24,9 @@ export enum ErrorCode {
   CONVERSION_ALREADY_INITIATED = 'CONVERSION_ALREADY_INITIATED',
   CONVERSION_NOT_INITIATED = 'CONVERSION_NOT_INITIATED',
   CONVERSION_ALREADY_RESOLVED = 'CONVERSION_ALREADY_RESOLVED',
+  SETTLEMENT_ALREADY_INITIATED = 'SETTLEMENT_ALREADY_INITIATED',
+  SETTLEMENT_NOT_INITIATED = 'SETTLEMENT_NOT_INITIATED',
+  SETTLEMENT_ALREADY_RESOLVED = 'SETTLEMENT_ALREADY_RESOLVED',
   // System
   INTERNAL_ERROR = 'INTERNAL_ERROR',
   SERVICE_UNAVAILABLE = 'SERVICE_UNAVAILABLE',
@@ -217,6 +220,36 @@ export class AppError extends Error {
       ErrorCode.CONVERSION_ALREADY_RESOLVED,
       HttpStatus.CONFLICT,
       'This conversion has already been approved or rejected; its funds are no longer held.',
+      false,
+      details
+    )
+  }
+
+  static settlementAlreadyInitiated(settlementId: string): AppError {
+    return new AppError(
+      ErrorCode.SETTLEMENT_ALREADY_INITIATED,
+      HttpStatus.CONFLICT,
+      `Settlement ${settlementId} has already been initiated.`,
+      false,
+      { settlementId }
+    )
+  }
+
+  static settlementNotInitiated(settlementId: string): AppError {
+    return new AppError(
+      ErrorCode.SETTLEMENT_NOT_INITIATED,
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      `Settlement ${settlementId} was never initiated.`,
+      false,
+      { settlementId }
+    )
+  }
+
+  static settlementAlreadyResolved(details: Record<string, unknown>): AppError {
+    return new AppError(
+      ErrorCode.SETTLEMENT_ALREADY_RESOLVED,
+      HttpStatus.CONFLICT,
+      'This settlement has already succeeded or failed; its funds are no longer held.',
       false,
       details
     )

@@ -101,5 +101,8 @@ export enum OutboxEventType {
   WALLET_TRANSFERRED = 'WalletTransferred',
   CONVERSION_INITIATED = 'ConversionInitiated',
   CONVERSION_APPROVED = 'ConversionApproved',
-  CONVERSION_REJECTED = 'ConversionRejected'
+  CONVERSION_REJECTED = 'ConversionRejected',
+  SETTLEMENT_INITIATED = 'SettlementInitiated',
+  SETTLEMENT_SUCCEEDED = 'SettlementSucceeded',
+  SETTLEMENT_FAILED = 'SettlementFailed'
 }

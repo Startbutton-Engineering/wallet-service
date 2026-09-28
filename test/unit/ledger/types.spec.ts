@@ -34,6 +34,9 @@ describe('OutboxEventType', () => {
       'ConversionInitiated',
       'ConversionApproved',
       'ConversionRejected',
+      'SettlementInitiated',
+      'SettlementSucceeded',
+      'SettlementFailed',
     ]);
   });
 });

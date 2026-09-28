@@ -11,6 +11,7 @@ import { WalletsModule } from '../../../src/wallets/wallets.module';
 import { CollectionsModule } from '../../../src/collections/collections.module';
 import { PayoutsModule } from '../../../src/payouts/payouts.module';
 import { ConversionsModule } from '../../../src/conversions/conversions.module';
+import { SettlementsModule } from '../../../src/settlements/settlements.module';
 import { AccountsRepository } from '../../../src/accounts/accounts.repository';
 import { LedgerService } from '../../../src/ledger/ledger.service';
 import { IdempotencyRepository } from '../../../src/ledger/idempotency.repository';
@@ -26,6 +27,8 @@ import { PayoutsService } from '../../../src/payouts/payouts.service';
 import { PayoutsController } from '../../../src/payouts/payouts.controller';
 import { ConversionsService } from '../../../src/conversions/conversions.service';
 import { ConversionsController } from '../../../src/conversions/conversions.controller';
+import { SettlementsService } from '../../../src/settlements/settlements.service';
+import { SettlementsController } from '../../../src/settlements/settlements.controller';
 
 const meta = (module: unknown, key: string) => Reflect.getMetadata(key, module as never);
 
@@ -40,6 +43,7 @@ describe('AppModule', () => {
       CollectionsModule,
       PayoutsModule,
       ConversionsModule,
+      SettlementsModule,
     ]);
   });
 
@@ -64,6 +68,7 @@ describe('feature modules', () => {
     ['CollectionsModule', CollectionsModule, [CollectionsService], [CollectionsController]],
     ['PayoutsModule', PayoutsModule, [PayoutsService], [PayoutsController]],
     ['ConversionsModule', ConversionsModule, [ConversionsService], [ConversionsController]],
+    ['SettlementsModule', SettlementsModule, [SettlementsService], [SettlementsController]],
   ] as [string, unknown, unknown[], unknown[]][])(
     '%s declares its providers and controllers',
     (_name, module, providers, controllers) => {
@@ -80,6 +85,7 @@ describe('feature modules', () => {
     ['CollectionsModule', CollectionsModule, CollectionsService],
     ['PayoutsModule', PayoutsModule, PayoutsService],
     ['ConversionsModule', ConversionsModule, ConversionsService],
+    ['SettlementsModule', SettlementsModule, SettlementsService],
   ] as [string, unknown, unknown][])('%s exports its main provider', (_name, module, provider) => {
     expect(meta(module, 'exports')).toContain(provider);
   });
@@ -97,6 +103,7 @@ describe('feature modules', () => {
     ['CollectionsModule', CollectionsModule],
     ['PayoutsModule', PayoutsModule],
     ['ConversionsModule', ConversionsModule],
+    ['SettlementsModule', SettlementsModule],
   ] as [string, unknown][])('%s is scoped rather than global', (_name, module) => {
     expect(meta(module, '__module:global__')).toBeUndefined();
   });
