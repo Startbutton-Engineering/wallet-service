@@ -315,6 +315,23 @@ describe('LedgerService', () => {
       expect(bed.writtenPostings[0]).toMatchObject({ reference: null, actor: null });
     });
 
+    it('writes an entry\'s metadata through', async () => {
+      const withMetadata = operation({
+        ...transfer(10n),
+        entries: [{ ...transfer(10n).entries[0], metadata: { rate: '1500' } }],
+      });
+
+      await bed.service.post(args({ generateLedgerOps: async () => withMetadata }));
+
+      expect(bed.writtenEntries[0].metadata).toEqual({ rate: '1500' });
+    });
+
+    it('defaults an entry with no metadata to null', async () => {
+      await bed.service.post(args({ generateLedgerOps: async () => transfer(1000n) }));
+
+      expect(bed.writtenEntries[0].metadata).toBeNull();
+    });
+
     it('lets an entry override the reference and operationType of the call', async () => {
       const overridden = operation({
         entries: [

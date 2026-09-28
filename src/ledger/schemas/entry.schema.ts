@@ -31,6 +31,9 @@ export class Entry {
   @Prop({ type: SchemaTypes.ObjectId, default: null })
   reversalOf: Types.ObjectId | null;
 
+  @Prop({ type: SchemaTypes.Mixed, default: null })
+  metadata: Record<string, unknown> | null;
+
   @Prop({ type: Date })
   createdAt: Date;
 }
@@ -39,3 +42,4 @@ export const EntrySchema = SchemaFactory.createForClass(Entry);
 
 EntrySchema.index({ operationId: 1 });
 EntrySchema.index({ tenantId: 1, reference: 1 });
+EntrySchema.index({ tenantId: 1, operationType: 1, createdAt: -1 });
