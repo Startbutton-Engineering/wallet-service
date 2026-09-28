@@ -21,6 +21,9 @@ export enum ErrorCode {
   PAYOUT_NOT_REVERSED = 'PAYOUT_NOT_REVERSED',
   PAYOUT_AMOUNT_MISMATCH = 'PAYOUT_AMOUNT_MISMATCH',
   WALLET_TRANSFER_ALREADY_APPLIED = 'WALLET_TRANSFER_ALREADY_APPLIED',
+  CONVERSION_ALREADY_INITIATED = 'CONVERSION_ALREADY_INITIATED',
+  CONVERSION_NOT_INITIATED = 'CONVERSION_NOT_INITIATED',
+  CONVERSION_ALREADY_RESOLVED = 'CONVERSION_ALREADY_RESOLVED',
   // System
   INTERNAL_ERROR = 'INTERNAL_ERROR',
   SERVICE_UNAVAILABLE = 'SERVICE_UNAVAILABLE',
@@ -186,6 +189,36 @@ export class AppError extends Error {
       `Wallet transfer ${transferId} has already been applied.`,
       false,
       { transferId }
+    )
+  }
+
+  static conversionAlreadyInitiated(conversionId: string): AppError {
+    return new AppError(
+      ErrorCode.CONVERSION_ALREADY_INITIATED,
+      HttpStatus.CONFLICT,
+      `Conversion ${conversionId} has already been initiated.`,
+      false,
+      { conversionId }
+    )
+  }
+
+  static conversionNotInitiated(conversionId: string): AppError {
+    return new AppError(
+      ErrorCode.CONVERSION_NOT_INITIATED,
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      `Conversion ${conversionId} was never initiated.`,
+      false,
+      { conversionId }
+    )
+  }
+
+  static conversionAlreadyResolved(details: Record<string, unknown>): AppError {
+    return new AppError(
+      ErrorCode.CONVERSION_ALREADY_RESOLVED,
+      HttpStatus.CONFLICT,
+      'This conversion has already been approved or rejected; its funds are no longer held.',
+      false,
+      details
     )
   }
 

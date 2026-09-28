@@ -56,6 +56,7 @@ export interface EntryDoc {
   reference: string | null;
   actor: string | null;
   reversalOf: Types.ObjectId | null;
+  metadata: Record<string, unknown> | null;
   createdAt: Date;
 }
 
@@ -97,5 +98,8 @@ export enum OutboxEventType {
   PAYOUT_FAILED = 'PayoutFailed',
   PAYOUT_REVERSED = 'PayoutReversed',
   PAYOUT_REVERSE_FAILED = 'PayoutReverseFailed',
-  WALLET_TRANSFERRED = 'WalletTransferred'
+  WALLET_TRANSFERRED = 'WalletTransferred',
+  CONVERSION_INITIATED = 'ConversionInitiated',
+  CONVERSION_APPROVED = 'ConversionApproved',
+  CONVERSION_REJECTED = 'ConversionRejected'
 }

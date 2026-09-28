@@ -10,10 +10,12 @@ import { LedgerModule } from '../../../src/ledger/ledger.module';
 import { WalletsModule } from '../../../src/wallets/wallets.module';
 import { CollectionsModule } from '../../../src/collections/collections.module';
 import { PayoutsModule } from '../../../src/payouts/payouts.module';
+import { ConversionsModule } from '../../../src/conversions/conversions.module';
 import { AccountsRepository } from '../../../src/accounts/accounts.repository';
 import { LedgerService } from '../../../src/ledger/ledger.service';
 import { IdempotencyRepository } from '../../../src/ledger/idempotency.repository';
 import { OutboxRepository } from '../../../src/ledger/outbox.repository';
+import { EntriesRepository } from '../../../src/ledger/entries.repository';
 import { CurrencyRegistryService } from '../../../src/currency/currency-registry.service';
 import { CurrencyController } from '../../../src/currency/currency.controller';
 import { WalletsService } from '../../../src/wallets/wallets.service';
@@ -22,6 +24,8 @@ import { CollectionsService } from '../../../src/collections/collection.service'
 import { CollectionsController } from '../../../src/collections/collections.controller';
 import { PayoutsService } from '../../../src/payouts/payouts.service';
 import { PayoutsController } from '../../../src/payouts/payouts.controller';
+import { ConversionsService } from '../../../src/conversions/conversions.service';
+import { ConversionsController } from '../../../src/conversions/conversions.controller';
 
 const meta = (module: unknown, key: string) => Reflect.getMetadata(key, module as never);
 
@@ -35,6 +39,7 @@ describe('AppModule', () => {
       WalletsModule,
       CollectionsModule,
       PayoutsModule,
+      ConversionsModule,
     ]);
   });
 
@@ -53,11 +58,12 @@ describe('AppModule', () => {
 describe('feature modules', () => {
   it.each([
     ['AccountsModule', AccountsModule, [AccountsRepository], []],
-    ['LedgerModule', LedgerModule, [LedgerService, IdempotencyRepository, OutboxRepository], []],
+    ['LedgerModule', LedgerModule, [LedgerService, IdempotencyRepository, OutboxRepository, EntriesRepository], []],
     ['CurrencyModule', CurrencyModule, [CurrencyRegistryService], [CurrencyController]],
     ['WalletsModule', WalletsModule, [WalletsService], [WalletsController]],
     ['CollectionsModule', CollectionsModule, [CollectionsService], [CollectionsController]],
     ['PayoutsModule', PayoutsModule, [PayoutsService], [PayoutsController]],
+    ['ConversionsModule', ConversionsModule, [ConversionsService], [ConversionsController]],
   ] as [string, unknown, unknown[], unknown[]][])(
     '%s declares its providers and controllers',
     (_name, module, providers, controllers) => {
@@ -73,6 +79,7 @@ describe('feature modules', () => {
     ['WalletsModule', WalletsModule, WalletsService],
     ['CollectionsModule', CollectionsModule, CollectionsService],
     ['PayoutsModule', PayoutsModule, PayoutsService],
+    ['ConversionsModule', ConversionsModule, ConversionsService],
   ] as [string, unknown, unknown][])('%s exports its main provider', (_name, module, provider) => {
     expect(meta(module, 'exports')).toContain(provider);
   });
@@ -89,6 +96,7 @@ describe('feature modules', () => {
     ['WalletsModule', WalletsModule],
     ['CollectionsModule', CollectionsModule],
     ['PayoutsModule', PayoutsModule],
+    ['ConversionsModule', ConversionsModule],
   ] as [string, unknown][])('%s is scoped rather than global', (_name, module) => {
     expect(meta(module, '__module:global__')).toBeUndefined();
   });

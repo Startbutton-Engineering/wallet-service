@@ -138,10 +138,15 @@ describe('mongo schemas', () => {
       expect(defaultOf(EntrySchema, 'reference')).toBeNull();
       expect(defaultOf(EntrySchema, 'actor')).toBeNull();
       expect(defaultOf(EntrySchema, 'reversalOf')).toBeNull();
+      expect(defaultOf(EntrySchema, 'metadata')).toBeNull();
     });
 
-    it('indexes by operation and by tenant-scoped reference', () => {
-      expect(indexes(EntrySchema)).toEqual([{ operationId: 1 }, { tenantId: 1, reference: 1 }]);
+    it('indexes by operation, by tenant-scoped reference, and by operation type', () => {
+      expect(indexes(EntrySchema)).toEqual([
+        { operationId: 1 },
+        { tenantId: 1, reference: 1 },
+        { tenantId: 1, operationType: 1, createdAt: -1 },
+      ]);
     });
   });
 

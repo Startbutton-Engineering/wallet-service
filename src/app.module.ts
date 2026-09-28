@@ -10,6 +10,7 @@ import { WalletsModule } from './wallets/wallets.module';
 import { LedgerModule } from './ledger/ledger.module';
 import { CollectionsModule } from './collections/collections.module';
 import { PayoutsModule } from './payouts/payouts.module';
+import { ConversionsModule } from './conversions/conversions.module';
 
 @Module({
   imports: [
@@ -19,7 +20,8 @@ import { PayoutsModule } from './payouts/payouts.module';
     LedgerModule,
     WalletsModule,
     CollectionsModule,
-    PayoutsModule
+    PayoutsModule,
+    ConversionsModule
   ],
   controllers: [HealthController],
   providers: [
