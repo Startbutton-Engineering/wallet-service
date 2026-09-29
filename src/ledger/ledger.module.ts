@@ -3,6 +3,7 @@ import { MongooseModule } from "@nestjs/mongoose";
 import { LedgerService } from "./ledger.service";
 import { IdempotencyRepository } from "./idempotency.repository";
 import { OutboxRepository } from "./outbox.repository";
+import { EntriesRepository } from "./entries.repository";
 import { Posting, PostingSchema } from "./schemas/posting.schema";
 import { Entry, EntrySchema } from "./schemas/entry.schema";
 import { Idempotency, IdempotencySchema } from "./schemas/idempotency.schema";
@@ -20,7 +21,7 @@ import { Account, AccountSchema } from "../accounts/account.schema";
       { name: Account.name, schema: AccountSchema }
     ])
   ],
-  providers: [ LedgerService, IdempotencyRepository, OutboxRepository ],
-  exports: [ LedgerService, IdempotencyRepository, OutboxRepository, MongooseModule ]
+  providers: [ LedgerService, IdempotencyRepository, OutboxRepository, EntriesRepository ],
+  exports: [ LedgerService, IdempotencyRepository, OutboxRepository, EntriesRepository, MongooseModule ]
 })
 export class LedgerModule {}

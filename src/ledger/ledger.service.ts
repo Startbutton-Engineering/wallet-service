@@ -237,6 +237,7 @@ export class LedgerService implements OnModuleInit {
         reversalOf: legderOperation.reversalOf
           ? new Types.ObjectId(legderOperation.reversalOf)
           : null,
+        metadata: entry.metadata ?? null,
         createdAt: new Date(),
       })
     }

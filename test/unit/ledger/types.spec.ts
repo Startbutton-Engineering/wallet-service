@@ -31,6 +31,12 @@ describe('OutboxEventType', () => {
       'PayoutReversed',
       'PayoutReverseFailed',
       'WalletTransferred',
+      'ConversionInitiated',
+      'ConversionApproved',
+      'ConversionRejected',
+      'SettlementInitiated',
+      'SettlementSucceeded',
+      'SettlementFailed',
     ]);
   });
 });
