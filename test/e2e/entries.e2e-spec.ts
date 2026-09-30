@@ -168,7 +168,7 @@ describe('Entry lookup', () => {
       ]);
     });
 
-    it('finds a wallet transfer by transferId', async () => {
+    it('finds a wallet transfer by its transfer id', async () => {
       const ownerId = randomUUID();
       const collectionId = randomUUID();
       await post('/collections/collect', { collectionId, ownerId, currency: 'NGN', amount: '50' });
@@ -178,7 +178,7 @@ describe('Entry lookup', () => {
         transferId, ownerId, currency: 'NGN', amount: '50', from: 'collection', to: 'payout',
       });
 
-      const res = await get('/entries', { transferId });
+      const res = await get('/entries', { IntraTransferId: transferId });
 
       expect(res.body.data.items).toHaveLength(1);
       expect(res.body.data.items[0].entryId).toBe(transfer.body.data.entryId);

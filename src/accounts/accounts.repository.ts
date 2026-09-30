@@ -100,7 +100,6 @@ export class AccountsRepository implements OnModuleInit {
     const available = types.get('available') ?? 0n;
     const heldInflow = types.get('held-inflow') ?? 0n;
     const heldOutflow = types.get('held-outflow') ?? 0n;
-    const reserve = types.get('reserve') ?? 0n;
     const refundChargeback = types.get('refund-chargeback') ?? 0n;
 
     return {
@@ -111,8 +110,7 @@ export class AccountsRepository implements OnModuleInit {
       available,
       heldInflow,
       heldOutflow,
-      reserve,
-      ledger: available + heldInflow + heldOutflow + reserve,
+      ledger: available + heldInflow + heldOutflow,
       refundChargeback
     }
   }
