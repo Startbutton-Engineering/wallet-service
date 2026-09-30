@@ -10,6 +10,7 @@ const doc = (overrides: Partial<IdempotencyDoc> = {}): IdempotencyDoc => ({
   requestHash: 'hash',
   operationType: 'collection.receive',
   status: 'completed',
+  operationId: new Types.ObjectId(),
   result: { ok: true },
   createdAt: new Date('2026-01-01T00:00:00.000Z'),
   ...overrides,

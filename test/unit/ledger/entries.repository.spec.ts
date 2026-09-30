@@ -80,3 +80,42 @@ describe('EntriesRepository.findUnresolvedInitiations', () => {
     expect(result).toHaveLength(2);
   });
 });
+
+describe('EntriesRepository lookups', () => {
+  it('finds one entry by id within the tenant', async () => {
+    const model = mockModel<EntryDoc>();
+    const found = entry();
+    model.findOne.mockReturnValue(mockQuery(found));
+    const repo = new EntriesRepository(model.asModel);
+
+    await expect(repo.findById(TENANT, found._id)).resolves.toBe(found);
+    expect(model.findOne).toHaveBeenCalledWith({ _id: found._id, tenantId: TENANT });
+  });
+
+  it('finds every entry of one operation, oldest first', async () => {
+    const model = mockModel<EntryDoc>();
+    const query = mockQuery([entry()]);
+    model.find.mockReturnValue(query);
+    const repo = new EntriesRepository(model.asModel);
+    const operationId = new Types.ObjectId();
+
+    await expect(repo.findByOperationId(TENANT, operationId)).resolves.toHaveLength(1);
+    expect(model.find).toHaveBeenCalledWith({ tenantId: TENANT, operationId });
+    expect(query.sort).toHaveBeenCalledWith({ createdAt: 1, _id: 1 });
+  });
+
+  it("finds a reference's lifecycle restricted to the owning operation types", async () => {
+    const model = mockModel<EntryDoc>();
+    const query = mockQuery([]);
+    model.find.mockReturnValue(query);
+    const repo = new EntriesRepository(model.asModel);
+
+    await repo.findByReference(TENANT, 'po-1', ['payout.initiate', 'payout.success']);
+    expect(model.find).toHaveBeenCalledWith({
+      tenantId: TENANT,
+      reference: 'po-1',
+      operationType: { $in: ['payout.initiate', 'payout.success'] },
+    });
+    expect(query.sort).toHaveBeenCalledWith({ createdAt: 1, _id: 1 });
+  });
+});

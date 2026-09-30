@@ -312,6 +312,7 @@ export class LedgerService implements OnModuleInit {
         requestHash,
         operationType: args.operationType,
         status: 'completed',
+        operationId,
         result: response,
         createdAt: new Date()
       }, 

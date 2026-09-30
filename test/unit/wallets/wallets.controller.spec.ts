@@ -1,5 +1,6 @@
 import { WalletsController } from '../../../src/wallets/wallets.controller';
 import { WalletsService } from '../../../src/wallets/wallets.service';
+import { StatementService } from '../../../src/wallets/statement.service';
 import { RESPONSE_MESSAGE_KEY } from '../../../src/common/api-response';
 import { CURRENCY, OWNER, TENANT, walletBalance } from '../../mocks';
 
@@ -9,7 +10,13 @@ describe('WalletsController', () => {
     transfer: jest.fn(async () => ({ operationId: 'op-1' })),
     balances: jest.fn(async () => [walletBalance({ walletType: 'collection' }), walletBalance({ walletType: 'payout' })]),
   };
-  const controller = new WalletsController(service as unknown as WalletsService);
+  const statements = {
+    statement: jest.fn(async () => ({ items: [], nextCursor: null })),
+  };
+  const controller = new WalletsController(
+    service as unknown as WalletsService,
+    statements as unknown as StatementService,
+  );
 
   beforeEach(() => jest.clearAllMocks());
 
@@ -75,6 +82,32 @@ describe('WalletsController', () => {
     });
   });
 
+  describe('statement', () => {
+    it('merges the path params with the validated query and returns the page unchanged', async () => {
+      const from = new Date('2026-09-01T00:00:00.000Z');
+      await expect(
+        controller.statement(TENANT, OWNER, CURRENCY, {
+          walletType: 'collection',
+          accountType: 'available',
+          from,
+          limit: 10,
+          cursor: 'abc',
+        }),
+      ).resolves.toEqual({ items: [], nextCursor: null });
+
+      expect(statements.statement).toHaveBeenCalledWith({
+        tenantId: TENANT,
+        ownerId: OWNER,
+        currency: CURRENCY,
+        walletType: 'collection',
+        accountType: 'available',
+        from,
+        limit: 10,
+        cursor: 'abc',
+      });
+    });
+  });
+
   it('labels each response', () => {
     expect(Reflect.getMetadata(RESPONSE_MESSAGE_KEY, WalletsController.prototype.create)).toBe(
       'Wallet created',
@@ -84,6 +117,9 @@ describe('WalletsController', () => {
     );
     expect(Reflect.getMetadata(RESPONSE_MESSAGE_KEY, WalletsController.prototype.balance)).toBe(
       'Wallet balances retrieved',
+    );
+    expect(Reflect.getMetadata(RESPONSE_MESSAGE_KEY, WalletsController.prototype.statement)).toBe(
+      'Wallet statement retrieved',
     );
   });
 });
