@@ -2,12 +2,13 @@ import { ClientSession, Model } from 'mongoose';
 import { mongo } from 'mongoose';
 
 /** A chainable stand-in for a mongoose Query.
- * `lean()`, `select()` and `sort()` return the query itself, exactly as mongoose does,
+ * `lean()`, `select()`, `sort()` and `limit()` return the query itself, exactly as mongoose does,
  * so repositories can chain them in any order; `exec()` resolves the canned result. */
 export interface MockQuery<T> {
   lean: jest.Mock<MockQuery<T>, []>;
   select: jest.Mock<MockQuery<T>, [unknown?]>;
   sort: jest.Mock<MockQuery<T>, [unknown?]>;
+  limit: jest.Mock<MockQuery<T>, [number?]>;
   exec: jest.Mock<Promise<T>, []>;
 }
 
@@ -16,6 +17,7 @@ export function mockQuery<T>(result: T): MockQuery<T> {
   query.lean = jest.fn(() => query);
   query.select = jest.fn(() => query);
   query.sort = jest.fn(() => query);
+  query.limit = jest.fn(() => query);
   query.exec = jest.fn(async () => result);
   return query;
 }

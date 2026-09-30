@@ -386,6 +386,15 @@ describe('LedgerService', () => {
       expect(session).toBe(bed.session);
     });
 
+    it('links the idempotency record to the operation, the same id its postings and entries carry', async () => {
+      await bed.service.post(args({ generateLedgerOps: async () => transfer(1000n) }));
+
+      const [record] = bed.idempotency.insert.mock.calls[0] as any[];
+      expect(record.operationId).toBeInstanceOf(Types.ObjectId);
+      expect(String(record.operationId)).toBe(String(bed.writtenEntries[0].operationId));
+      expect(String(record.operationId)).toBe(String(bed.writtenPostings[0].operationId));
+    });
+
     it('writes the outbox event for the operation', async () => {
       await bed.service.post(
         args({

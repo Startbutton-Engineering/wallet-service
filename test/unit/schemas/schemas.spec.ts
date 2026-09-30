@@ -118,6 +118,10 @@ describe('mongo schemas', () => {
     it('indexes the account statement, the operation and the reference lookups', () => {
       expect(indexes(PostingSchema)).toEqual([
         { accountId: 1, sequence: 1 },
+        // Resolves a single-account statement's from/to into a sequence range.
+        { accountId: 1, createdAt: 1, sequence: 1 },
+        // The merged statement keyset: owner + currency ordered by (createdAt, _id).
+        { tenantId: 1, ownerId: 1, currency: 1, createdAt: 1, _id: 1 },
         { operationId: 1 },
         // Serves referenceNetAmount; the old { tenantId, reference } index is its prefix.
         { tenantId: 1, reference: 1, accountType: 1, currency: 1, operationType: 1 },
@@ -155,6 +159,11 @@ describe('mongo schemas', () => {
       expect(IdempotencySchema.path('result').instance).toBe('Mixed');
       expect(defaultOf(IdempotencySchema, 'result')).toBeNull();
       expect(IdempotencySchema.get('minimize')).toBe(false);
+    });
+
+    it('links each record to the operation it produced, null for records that predate the link', () => {
+      expect(IdempotencySchema.path('operationId').instance).toBe('ObjectId');
+      expect(defaultOf(IdempotencySchema, 'operationId')).toBeNull();
     });
 
     it('makes the tenant-scoped key unique, which is what the replay branch relies on', () => {

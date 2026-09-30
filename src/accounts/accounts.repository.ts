@@ -69,6 +69,19 @@ export class AccountsRepository implements OnModuleInit {
     )
   }
 
+  /** The owner's user sub-accounts in one currency — every wallet type, or only `walletType`'s. */
+  async findUserAccounts(
+    tenantId: string,
+    ownerId: string,
+    currency: string,
+    walletType?: WalletType
+  ): Promise<AccountDoc[]> {
+    return this.model
+      .find({ tenantId, ownerId, currency, kind: 'user', ...(walletType ? { walletType } : {}) })
+      .lean<AccountDoc[]>()
+      .exec();
+  }
+
   async balanceBreakdown(
     tenantId: string,
     ownerId: string,

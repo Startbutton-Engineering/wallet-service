@@ -115,6 +115,23 @@ describe('AccountsRepository', () => {
     });
   });
 
+  describe('findUserAccounts', () => {
+    it("loads the owner's sub-accounts across every wallet type", async () => {
+      const docs = [userAccount('available', 0n)];
+      model.find.mockReturnValue(mockQuery(docs));
+
+      await expect(repo.findUserAccounts(TENANT, OWNER, CURRENCY)).resolves.toBe(docs);
+      expect(model.find).toHaveBeenCalledWith({ tenantId: TENANT, ownerId: OWNER, currency: CURRENCY, kind: 'user' });
+    });
+
+    it('narrows to one wallet type when given', async () => {
+      await repo.findUserAccounts(TENANT, OWNER, CURRENCY, 'payout');
+      expect(model.find).toHaveBeenCalledWith({
+        tenantId: TENANT, ownerId: OWNER, currency: CURRENCY, kind: 'user', walletType: 'payout',
+      });
+    });
+  });
+
   describe('balanceBreakdown', () => {
     it('returns null when the wallet was never provisioned', async () => {
       await expect(repo.balanceBreakdown(TENANT, OWNER, CURRENCY, 'collection')).resolves.toBeNull();

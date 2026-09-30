@@ -67,6 +67,7 @@ export interface IdempotencyDoc {
   requestHash: string;
   operationType: string;
   status: 'completed';
+  operationId: Types.ObjectId | null;
   result: unknown;
   createdAt: Date;
 }
