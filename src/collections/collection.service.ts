@@ -7,6 +7,12 @@ import { accountRef } from "../accounts/account";
 import { creditWithDebtPaydown } from "./credit-policy";
 import { AppError } from "../common/errors";
 
+export const CollectionOperation = {
+  receive: 'collection.receive',
+  settle: 'collection.settle',
+  settleBatch: 'collection.settle.batch',
+} as const;
+
 export interface CollectionResult {
   operationId: string;
   entryId: string;
@@ -56,11 +62,11 @@ export class CollectionsService {
 
   async collect(params: CollectionParams): Promise<CollectionResult> {
     const {ownerId, currency, amount, collectionId} = params;
-    return this.post(params, 'collection.receive', OutboxEventType.COLLECTION_RECEIVED, async(ctx) => {
+    return this.post(params, CollectionOperation.receive, OutboxEventType.COLLECTION_RECEIVED, async(ctx) => {
       const alreadyReceived = await ctx.referenceNetAmount(
         collectionId,
         accountRef.collectionWallet(ownerId, currency, 'held-inflow'),
-        ['collection.receive']
+        [CollectionOperation.receive]
       );
       if (alreadyReceived !== 0n) throw AppError.collectionAlreadyReceived(collectionId);
 
@@ -78,7 +84,7 @@ export class CollectionsService {
 
   async settled(params: CollectionParams): Promise<CollectionResult> {
     const { ownerId, currency, amount, collectionId } = params;
-    return this.post(params, 'collection.settle', OutboxEventType.COLLECTION_SETTLED, async(ctx) => {
+    return this.post(params, CollectionOperation.settle, OutboxEventType.COLLECTION_SETTLED, async(ctx) => {
       const outstanding = await ctx.referenceNetAmount(
         collectionId,
         accountRef.collectionWallet(ownerId, currency, 'held-inflow')
@@ -122,7 +128,7 @@ export class CollectionsService {
     return this.ledgerService.post<BatchCollectionResult>({
       tenantId,
       idempotencyKey,
-      operationType: 'collection.settle.batch',
+      operationType: CollectionOperation.settleBatch,
       requestPayload: {
         ownerId,
         currency,

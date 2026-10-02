@@ -4,6 +4,7 @@ import { LedgerService } from "./ledger.service";
 import { IdempotencyRepository } from "./idempotency.repository";
 import { OutboxRepository } from "./outbox.repository";
 import { EntriesRepository } from "./entries.repository";
+import { PostingsRepository } from "./postings.repository";
 import { Posting, PostingSchema } from "./schemas/posting.schema";
 import { Entry, EntrySchema } from "./schemas/entry.schema";
 import { Idempotency, IdempotencySchema } from "./schemas/idempotency.schema";
@@ -21,7 +22,7 @@ import { Account, AccountSchema } from "../accounts/account.schema";
       { name: Account.name, schema: AccountSchema }
     ])
   ],
-  providers: [ LedgerService, IdempotencyRepository, OutboxRepository, EntriesRepository ],
-  exports: [ LedgerService, IdempotencyRepository, OutboxRepository, EntriesRepository, MongooseModule ]
+  providers: [ LedgerService, IdempotencyRepository, OutboxRepository, EntriesRepository, PostingsRepository ],
+  exports: [ LedgerService, IdempotencyRepository, OutboxRepository, EntriesRepository, PostingsRepository, MongooseModule ]
 })
 export class LedgerModule {}

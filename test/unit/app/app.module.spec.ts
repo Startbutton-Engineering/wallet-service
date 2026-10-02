@@ -17,6 +17,11 @@ import { LedgerService } from '../../../src/ledger/ledger.service';
 import { IdempotencyRepository } from '../../../src/ledger/idempotency.repository';
 import { OutboxRepository } from '../../../src/ledger/outbox.repository';
 import { EntriesRepository } from '../../../src/ledger/entries.repository';
+import { PostingsRepository } from '../../../src/ledger/postings.repository';
+import { EntriesModule } from '../../../src/entries/entries.module';
+import { EntriesService } from '../../../src/entries/entries.service';
+import { EntriesController } from '../../../src/entries/entries.controller';
+import { StatementService } from '../../../src/wallets/statement.service';
 import { CurrencyRegistryService } from '../../../src/currency/currency-registry.service';
 import { CurrencyController } from '../../../src/currency/currency.controller';
 import { WalletsService } from '../../../src/wallets/wallets.service';
@@ -44,6 +49,7 @@ describe('AppModule', () => {
       PayoutsModule,
       ConversionsModule,
       SettlementsModule,
+      EntriesModule,
     ]);
   });
 
@@ -62,13 +68,19 @@ describe('AppModule', () => {
 describe('feature modules', () => {
   it.each([
     ['AccountsModule', AccountsModule, [AccountsRepository], []],
-    ['LedgerModule', LedgerModule, [LedgerService, IdempotencyRepository, OutboxRepository, EntriesRepository], []],
+    [
+      'LedgerModule',
+      LedgerModule,
+      [LedgerService, IdempotencyRepository, OutboxRepository, EntriesRepository, PostingsRepository],
+      [],
+    ],
     ['CurrencyModule', CurrencyModule, [CurrencyRegistryService], [CurrencyController]],
-    ['WalletsModule', WalletsModule, [WalletsService], [WalletsController]],
+    ['WalletsModule', WalletsModule, [WalletsService, StatementService], [WalletsController]],
     ['CollectionsModule', CollectionsModule, [CollectionsService], [CollectionsController]],
     ['PayoutsModule', PayoutsModule, [PayoutsService], [PayoutsController]],
     ['ConversionsModule', ConversionsModule, [ConversionsService], [ConversionsController]],
     ['SettlementsModule', SettlementsModule, [SettlementsService], [SettlementsController]],
+    ['EntriesModule', EntriesModule, [EntriesService], [EntriesController]],
   ] as [string, unknown, unknown[], unknown[]][])(
     '%s declares its providers and controllers',
     (_name, module, providers, controllers) => {

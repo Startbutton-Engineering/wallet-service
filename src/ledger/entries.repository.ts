@@ -1,12 +1,32 @@
 import { Injectable } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
-import { Model } from "mongoose";
+import { Model, Types } from "mongoose";
 import { Entry } from "./schemas/entry.schema";
 import { EntryDoc } from "./types";
 
 @Injectable()
 export class EntriesRepository {
   constructor(@InjectModel(Entry.name) private readonly model: Model<EntryDoc>) {}
+
+  async findById(tenantId: string, id: Types.ObjectId): Promise<EntryDoc | null> {
+    return this.model.findOne({ _id: id, tenantId }).lean<EntryDoc>().exec();
+  }
+
+  async findByOperationId(tenantId: string, operationId: Types.ObjectId): Promise<EntryDoc[]> {
+    return this.model
+      .find({ tenantId, operationId })
+      .sort({ createdAt: 1, _id: 1 })
+      .lean<EntryDoc[]>()
+      .exec();
+  }
+
+  async findByReference(tenantId: string, reference: string, operationTypes: readonly string[]): Promise<EntryDoc[]> {
+    return this.model
+      .find({ tenantId, reference, operationType: { $in: operationTypes } })
+      .sort({ createdAt: 1, _id: 1 })
+      .lean<EntryDoc[]>()
+      .exec();
+  }
 
   async findUnresolvedInitiations(
     tenantId: string,

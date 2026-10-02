@@ -22,6 +22,9 @@ export class Idempotency {
   @Prop({ type: String })
   status: 'completed';
 
+  @Prop({ type: SchemaTypes.ObjectId, default: null })
+  operationId: Types.ObjectId | null;
+
   @Prop({ type: SchemaTypes.Mixed, default: null })
   result: unknown;
 

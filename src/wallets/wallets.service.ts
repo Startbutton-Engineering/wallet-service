@@ -9,7 +9,7 @@ import { OutboxEventType } from "../ledger/types";
 
 /** operationType stamped on every wallet-to-wallet transfer posting. Never change this string
  * without a migration — posted history is interpreted through it. */
-export const WALLET_TRANSFER_OPERATION = 'wallet.transfer';
+export const WALLET_TRANSFER_OPERATION = 'wallet.intra-transfer';
 
 export interface WalletTransferResult {
   operationId: string;
