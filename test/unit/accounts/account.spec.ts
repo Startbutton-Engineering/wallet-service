@@ -40,13 +40,13 @@ describe('refKey', () => {
 
 describe('refOf', () => {
   it('round-trips a user account document back to its ref', () => {
-    const ref = accountRef.user('m1', 'NGN', 'payout', 'reserve');
+    const ref = accountRef.user('m1', 'NGN', 'payout', 'available');
     const doc = accountDoc({
       kind: 'user',
       ownerId: 'm1',
       currency: 'NGN',
       walletType: 'payout',
-      accountType: 'reserve',
+      accountType: 'available',
     });
 
     expect(refOf(doc)).toEqual(ref);
@@ -74,7 +74,7 @@ describe('System account names', () => {
     expect(System.collection).toBe('external:collection');
     expect(System.payout).toBe('external:payout');
     expect(System.openingBalance).toBe('external:opening-balance');
-    expect(System.suspenseRefunds).toBe('suspense:refunds');
+    expect(System.refunds).toBe('external:refunds');
   });
 
   it('derives an fx account name per currency', () => {
@@ -94,12 +94,12 @@ describe('accountRef', () => {
   });
 
   it('user takes the account type verbatim', () => {
-    expect(accountRef.user('m1', 'NGN', 'collection', 'reserve')).toEqual({
+    expect(accountRef.user('m1', 'NGN', 'collection', 'available')).toEqual({
       kind: 'user',
       ownerId: 'm1',
       currency: 'NGN',
       walletType: 'collection',
-      accountType: 'reserve',
+      accountType: 'available',
     });
   });
 
@@ -130,12 +130,11 @@ describe('accountRef', () => {
 });
 
 describe('type constants', () => {
-  it('lists the five user sub-accounts and the two wallet types', () => {
+  it('lists the four user sub-accounts and the two wallet types', () => {
     expect(USER_ACCOUNT_TYPES).toEqual([
       'available',
       'held-inflow',
       'held-outflow',
-      'reserve',
       'refund-chargeback',
     ]);
     expect(WALLET_TYPES).toEqual(['collection', 'payout']);

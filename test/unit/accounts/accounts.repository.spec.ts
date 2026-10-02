@@ -143,7 +143,6 @@ describe('AccountsRepository', () => {
           userAccount('available', 500n),
           userAccount('held-inflow', 200n),
           userAccount('held-outflow', 50n),
-          userAccount('reserve', 25n),
           userAccount('refund-chargeback', -30n),
         ]),
       );
@@ -156,8 +155,7 @@ describe('AccountsRepository', () => {
         available: 500n,
         heldInflow: 200n,
         heldOutflow: 50n,
-        reserve: 25n,
-        ledger: 775n,
+        ledger: 750n,
         refundChargeback: -30n,
       });
     });
@@ -177,7 +175,6 @@ describe('AccountsRepository', () => {
         available: 100n,
         heldInflow: 0n,
         heldOutflow: 0n,
-        reserve: 0n,
         refundChargeback: 0n,
         ledger: 100n,
       });

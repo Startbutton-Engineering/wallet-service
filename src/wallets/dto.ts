@@ -94,7 +94,6 @@ export interface WalletBalance {
   available: bigint;
   heldInflow: bigint;
   heldOutflow: bigint;
-  reserve: bigint;
   ledger: bigint;
   refundChargeback: bigint;
 }
@@ -107,7 +106,6 @@ export function balanceToJson(bal: WalletBalance) {
     available: bal.available.toString(),
     heldInflow: bal.heldInflow.toString(),
     heldOutflow: bal.heldOutflow.toString(),
-    reserve: bal.reserve.toString(),
     ledger: bal.ledger.toString(),
     refundChargeback: bal.refundChargeback.toString() 
   }
