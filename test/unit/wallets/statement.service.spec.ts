@@ -99,8 +99,8 @@ describe('StatementService', () => {
 
     it('404s a sub-account missing from an otherwise provisioned wallet', async () => {
       await expect(
-        service.statement(params({ walletType: 'collection', accountType: 'reserve' })),
-      ).rejects.toMatchObject({ code: ErrorCode.NOT_FOUND, details: { accountType: 'reserve' } });
+        service.statement(params({ walletType: 'collection', accountType: 'held-outflow' })),
+      ).rejects.toMatchObject({ code: ErrorCode.NOT_FOUND, details: { accountType: 'held-outflow' } });
     });
   });
 
