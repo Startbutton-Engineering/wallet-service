@@ -13,6 +13,7 @@ import { PayoutsModule } from './payouts/payouts.module';
 import { ConversionsModule } from './conversions/conversions.module';
 import { SettlementsModule } from './settlements/settlements.module';
 import { EntriesModule } from './entries/entries.module';
+import { RefundsModule } from './refunds/refunds.module';
 
 @Module({
   imports: [
@@ -25,7 +26,8 @@ import { EntriesModule } from './entries/entries.module';
     PayoutsModule,
     ConversionsModule,
     SettlementsModule,
-    EntriesModule
+    EntriesModule,
+    RefundsModule
   ],
   controllers: [HealthController],
   providers: [

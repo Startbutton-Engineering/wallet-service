@@ -6,6 +6,8 @@ import { ConversionOperation } from "../conversions/conversion-transitions";
 import { PayoutOperation } from "../payouts/payout-transitions";
 import { SettlementOperation } from "../settlements/settlement-transitions";
 import { WALLET_TRANSFER_OPERATION } from "../wallets/wallets.service";
+import { RefundOperation } from "../refunds/refund-transitions";
+import { RefundFeeOperation } from "../refunds/refund-fee-transitions";
 import type { Direction, EntryDoc, PostingDoc } from "../ledger/types";
 
 export const REFERENCE_OPERATION_TYPES = {
@@ -14,6 +16,8 @@ export const REFERENCE_OPERATION_TYPES = {
   settlementId: Object.values(SettlementOperation),
   conversionId: Object.values(ConversionOperation),
   IntraTransferId: [WALLET_TRANSFER_OPERATION],
+  refundId: Object.values(RefundOperation),
+  refundTransferReference: Object.values(RefundFeeOperation),
 } as const satisfies Record<string, readonly string[]>;
 
 export type ReferenceKey = keyof typeof REFERENCE_OPERATION_TYPES;

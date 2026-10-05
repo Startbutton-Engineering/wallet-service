@@ -19,7 +19,7 @@ describe('balanceToJson', () => {
       available: '500',
       heldInflow: '200',
       heldOutflow: '50',
-      ledger: '750',
+      ledger: '720',
       refundChargeback: '-30',
     });
     expect(json).not.toHaveProperty('tenantId');

@@ -26,7 +26,7 @@ export function walletBalance(overrides: Partial<WalletBalance> = {}): WalletBal
   };
   return {
     ...base,
-    ledger: overrides.ledger ?? base.available + base.heldInflow + base.heldOutflow,
+    ledger: overrides.ledger ?? base.available + base.heldInflow + base.heldOutflow + base.refundChargeback,
   };
 }
 

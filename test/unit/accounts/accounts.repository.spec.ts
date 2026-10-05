@@ -155,16 +155,16 @@ describe('AccountsRepository', () => {
         available: 500n,
         heldInflow: 200n,
         heldOutflow: 50n,
-        ledger: 750n,
+        ledger: 720n,
         refundChargeback: -30n,
       });
     });
 
-    it('leaves the refund-chargeback debt out of the ledger total', async () => {
+    it('nets the refund-chargeback debt into the ledger total', async () => {
       model.find.mockReturnValue(mockQuery([userAccount('available', 100n), userAccount('refund-chargeback', -40n)]));
 
       const balance = await repo.balanceBreakdown(TENANT, OWNER, CURRENCY, 'collection');
-      expect(balance?.ledger).toBe(100n);
+      expect(balance?.ledger).toBe(60n);
       expect(balance?.refundChargeback).toBe(-40n);
     });
 

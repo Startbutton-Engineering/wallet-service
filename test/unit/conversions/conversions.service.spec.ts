@@ -9,6 +9,7 @@ import {
   LedgerHarness,
   LedgerHarnessOptions,
   mockCurrencyRegistry,
+  walletBalance,
 } from '../../mocks';
 
 const base = {
@@ -187,6 +188,36 @@ describe('ConversionsService', () => {
 
       expect(ledger.accountBalance).toHaveBeenCalledWith(OWNER, 'NGN', 'collection');
       expect(ledger.accountBalance).toHaveBeenCalledWith(OWNER, 'USD', 'collection');
+    });
+
+    it('adds a debt-settled event when an approval repays refund-chargeback debt', async () => {
+      build({
+        netAmount: () => 150_000n,
+        balance: (ownerId, currency, walletType) => walletBalance({ ownerId, currency, walletType, refundChargeback: -40_000n }),
+      });
+
+      await service.resolve({
+        tenantId: TENANT, idempotencyKey: 'key-2', conversionId: 'cv-1', ownerId: OWNER,
+        fromCurrency: 'NGN', toCurrency: 'USD', status: 'approved', walletType: 'collection',
+      });
+
+      expect(ledger.events.map((e) => e.type)).toEqual([
+        OutboxEventType.CONVERSION_APPROVED,
+        OutboxEventType.REFUND_CHARGEBACK_SETTLED,
+      ]);
+      expect(ledger.events[0].payload).toMatchObject({ settledToDebit: '40000' });
+    });
+
+    it('emits no debt-settled event and no settledToDebit when nothing was repaid', async () => {
+      build({ netAmount: () => 150_000n });
+
+      await service.resolve({
+        tenantId: TENANT, idempotencyKey: 'key-2', conversionId: 'cv-1', ownerId: OWNER,
+        fromCurrency: 'NGN', toCurrency: 'USD', status: 'rejected', walletType: 'collection',
+      });
+
+      expect(ledger.events).toHaveLength(1);
+      expect(ledger.events[0].payload).not.toHaveProperty('settledToDebit');
     });
 
     it('reads the payout wallet for both currencies when walletType is payout', async () => {

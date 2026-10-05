@@ -19,6 +19,9 @@ import { OutboxRepository } from '../../../src/ledger/outbox.repository';
 import { EntriesRepository } from '../../../src/ledger/entries.repository';
 import { PostingsRepository } from '../../../src/ledger/postings.repository';
 import { EntriesModule } from '../../../src/entries/entries.module';
+import { RefundsModule } from '../../../src/refunds/refunds.module';
+import { RefundsService } from '../../../src/refunds/refunds.service';
+import { RefundsController } from '../../../src/refunds/refunds.controller';
 import { EntriesService } from '../../../src/entries/entries.service';
 import { EntriesController } from '../../../src/entries/entries.controller';
 import { StatementService } from '../../../src/wallets/statement.service';
@@ -50,6 +53,7 @@ describe('AppModule', () => {
       ConversionsModule,
       SettlementsModule,
       EntriesModule,
+      RefundsModule,
     ]);
   });
 
@@ -78,6 +82,7 @@ describe('feature modules', () => {
     ['WalletsModule', WalletsModule, [WalletsService, StatementService], [WalletsController]],
     ['CollectionsModule', CollectionsModule, [CollectionsService], [CollectionsController]],
     ['PayoutsModule', PayoutsModule, [PayoutsService], [PayoutsController]],
+    ['RefundsModule', RefundsModule, [RefundsService], [RefundsController]],
     ['ConversionsModule', ConversionsModule, [ConversionsService], [ConversionsController]],
     ['SettlementsModule', SettlementsModule, [SettlementsService], [SettlementsController]],
     ['EntriesModule', EntriesModule, [EntriesService], [EntriesController]],

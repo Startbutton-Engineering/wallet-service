@@ -162,7 +162,7 @@ describe('CollectionsService', () => {
 
       expect(ledger.events.map((e) => e.type)).toEqual([
         OutboxEventType.COLLECTION_SETTLED,
-        'ReffunChargebackSettled',
+        OutboxEventType.REFUND_CHARGEBACK_SETTLED,
       ]);
       expect(ledger.events[0].payload).toMatchObject({
         settledToDebit: '400',
@@ -301,7 +301,7 @@ describe('CollectionsService', () => {
 
       expect(ledger.events.map((e) => e.type)).toEqual([
         OutboxEventType.COLLECTION_SETTLED,
-        'ReffunChargebackSettled',
+        OutboxEventType.REFUND_CHARGEBACK_SETTLED,
       ]);
     });
 

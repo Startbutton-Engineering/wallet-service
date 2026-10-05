@@ -10,6 +10,8 @@ import {
   ResolveParams,
   planInitiate,
 } from "../../../src/conversions/conversion-transitions";
+import { WalletType } from "../../../src/accounts/account";
+import { walletBalance } from "../../mocks";
 
 const INITIATE_PARAMS: InitiateParams = {
   conversionId: 'cv-1',
@@ -43,10 +45,13 @@ function accountId(ref: AccountRef): string {
  * Mongo — by summing what earlier transitions wrote. */
 class FakeLedger {
   private postings: FakePosting[] = [];
+  /** The owner's refund-chargeback balance, as approve reads it for the toCurrency wallet. */
+  refundChargeback = 0n;
 
   readonly ctx = {
     session: undefined as never,
-    readBalance: () => { throw new Error('not used by conversion transitions') },
+    readBalance: async (ownerId: string, currency: string, walletType: WalletType) =>
+      walletBalance({ ownerId, currency, walletType, refundChargeback: this.refundChargeback }),
     referenceNetAmount: async (reference: string, account: AccountRef, operationTypes?: string[]) => {
       const id = accountId(account);
       return this.postings
@@ -177,6 +182,33 @@ describe('conversion transitions', () => {
         refKey(accountRef.collectionWallet('m1', 'NGN', 'held-inflow')),
         refKey(accountRef.collectionWallet('m1', 'USD', 'held-inflow')),
       ]);
+    });
+
+    it('approve into a collection wallet repays refund-chargeback debt before crediting available', async () => {
+      await ledger.applyInitiate();
+      ledger.refundChargeback = -30n;
+      const plan = await ledger.planOnly('approved');
+
+      expect(plan.entries[1].postings.map((p) => [accountId(p.account), p.direction, p.amount])).toEqual([
+        [refKey(accountRef.collectionWallet('m1', 'USD', 'held-inflow')), 'debit', 100n],
+        [refKey(accountRef.collectionWallet('m1', 'USD', 'refund-chargeback')), 'credit', 30n],
+        [refKey(accountRef.collectionWallet('m1', 'USD', 'available')), 'credit', 70n],
+      ]);
+      expect(plan.settledToDebit).toBe(30n);
+    });
+
+    it('approve into a payout wallet ignores refund-chargeback debt', async () => {
+      const initiateParams: InitiateParams = { ...INITIATE_PARAMS, conversionId: 'cv-payout-debt', walletType: 'payout' };
+      const resolveParams: ResolveParams = { ...RESOLVE_PARAMS, conversionId: 'cv-payout-debt', walletType: 'payout' };
+      await ledger.applyInitiate(initiateParams);
+      ledger.refundChargeback = -30n;
+      const plan = await ledger.planOnly('approved', resolveParams);
+
+      expect(plan.entries[1].postings.map((p) => [accountId(p.account), p.direction, p.amount])).toEqual([
+        [refKey(accountRef.payoutWallet('m1', 'USD', 'held-inflow')), 'debit', 100n],
+        [refKey(accountRef.payoutWallet('m1', 'USD', 'available')), 'credit', 100n],
+      ]);
+      expect(plan.settledToDebit).toBe(0n);
     });
 
     it('reject reverses initiate exactly: fromCurrency back to available, toCurrency back to the fx desk', async () => {
