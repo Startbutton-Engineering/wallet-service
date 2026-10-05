@@ -126,6 +126,11 @@ describe('accountRef', () => {
       name: System.payout,
       currency: 'NGN',
     });
+    expect(accountRef.systemRefunds('NGN')).toEqual({
+      kind: 'system',
+      name: 'external:refunds',
+      currency: 'NGN',
+    });
   });
 });
 

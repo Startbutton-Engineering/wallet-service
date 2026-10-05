@@ -121,6 +121,15 @@ describe('AppError', () => {
         ErrorCode.WALLET_TRANSFER_ALREADY_APPLIED,
         HttpStatus.CONFLICT,
       ],
+      ['refundAlreadyInitiated', AppError.refundAlreadyInitiated('r1'), ErrorCode.REFUND_ALREADY_INITIATED, HttpStatus.CONFLICT],
+      ['refundNotInitiated', AppError.refundNotInitiated('r1'), ErrorCode.REFUND_NOT_INITIATED, HttpStatus.UNPROCESSABLE_ENTITY],
+      ['refundAlreadyResolved', AppError.refundAlreadyResolved({ refundId: 'r1' }), ErrorCode.REFUND_ALREADY_RESOLVED, HttpStatus.CONFLICT],
+      ['refundFeeAlreadyInitiated', AppError.refundFeeAlreadyInitiated({ refundId: 'r1' }), ErrorCode.REFUND_FEE_ALREADY_INITIATED, HttpStatus.CONFLICT],
+      ['refundFeeNotInitiated', AppError.refundFeeNotInitiated({ refundId: 'r1' }), ErrorCode.REFUND_FEE_NOT_INITIATED, HttpStatus.UNPROCESSABLE_ENTITY],
+      ['refundFeeAlreadyResolved', AppError.refundFeeAlreadyResolved({ refundId: 'r1' }), ErrorCode.REFUND_FEE_ALREADY_RESOLVED, HttpStatus.CONFLICT],
+      ['refundFeeNotReversed', AppError.refundFeeNotReversed({ refundId: 'r1' }), ErrorCode.REFUND_FEE_NOT_REVERSED, HttpStatus.UNPROCESSABLE_ENTITY],
+      ['refundFeeAmountMismatch', AppError.refundFeeAmountMismatch({ refundId: 'r1' }), ErrorCode.REFUND_FEE_AMOUNT_MISMATCH, HttpStatus.UNPROCESSABLE_ENTITY],
+      ['refundAmountMismatch', AppError.refundAmountMismatch({ refundId: 'r1' }), ErrorCode.REFUND_AMOUNT_MISMATCH, HttpStatus.UNPROCESSABLE_ENTITY],
     ];
 
     it.each(cases)('%s', (_name, err, code, status) => {
@@ -136,6 +145,8 @@ describe('AppError', () => {
     expect(AppError.payoutAlreadyInitiated('p1').details).toEqual({ payoutId: 'p1' });
     expect(AppError.payoutNotInitiated('p1').details).toEqual({ payoutId: 'p1' });
     expect(AppError.walletTransferAlreadyApplied('tr1').details).toEqual({ transferId: 'tr1' });
+    expect(AppError.refundAlreadyInitiated('r1').details).toEqual({ refundId: 'r1' });
+    expect(AppError.refundNotInitiated('r1').details).toEqual({ refundId: 'r1' });
     expect(AppError.invalidCurrency('XXX').message).toBe('Unknown currency: XXX');
     expect(AppError.notFound('gone', { id: 1 }).details).toEqual({ id: 1 });
   });

@@ -110,7 +110,7 @@ export class AccountsRepository implements OnModuleInit {
       available,
       heldInflow,
       heldOutflow,
-      ledger: available + heldInflow + heldOutflow,
+      ledger: available + heldInflow + heldOutflow + refundChargeback,
       refundChargeback
     }
   }

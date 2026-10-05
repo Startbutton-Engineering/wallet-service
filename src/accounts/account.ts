@@ -75,6 +75,11 @@ export const accountRef = {
     kind: 'system',
     name: System.payout,
     currency
+  }),
+  systemRefunds: (currency: string): AccountRef => ({
+    kind: 'system',
+    name: System.refunds,
+    currency
   })
 }
 

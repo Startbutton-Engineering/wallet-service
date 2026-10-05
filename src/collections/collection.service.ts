@@ -116,7 +116,7 @@ export class CollectionsService {
           settledToDebit: settled.toString(),
           amountToCredit: amountToCredit.toString(),
         },
-        alsoEmit: settled > 0n ? ['ReffunChargebackSettled'] : []
+        alsoEmit: settled > 0n ? [OutboxEventType.REFUND_CHARGEBACK_SETTLED] : []
       }
     })
   }
@@ -195,7 +195,7 @@ export class CollectionsService {
             currency,
             items.reduce((sum, i) => sum + i.amount, 0n),
             { items: perItem },
-            settledAny ? ['ReffunChargebackSettled'] : [],
+            settledAny ? [OutboxEventType.REFUND_CHARGEBACK_SETTLED] : [],
           ),
         };
       },

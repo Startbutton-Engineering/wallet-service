@@ -27,6 +27,15 @@ export enum ErrorCode {
   SETTLEMENT_ALREADY_INITIATED = 'SETTLEMENT_ALREADY_INITIATED',
   SETTLEMENT_NOT_INITIATED = 'SETTLEMENT_NOT_INITIATED',
   SETTLEMENT_ALREADY_RESOLVED = 'SETTLEMENT_ALREADY_RESOLVED',
+  REFUND_ALREADY_INITIATED = 'REFUND_ALREADY_INITIATED',
+  REFUND_NOT_INITIATED = 'REFUND_NOT_INITIATED',
+  REFUND_ALREADY_RESOLVED = 'REFUND_ALREADY_RESOLVED',
+  REFUND_AMOUNT_MISMATCH = 'REFUND_AMOUNT_MISMATCH',
+  REFUND_FEE_ALREADY_INITIATED = 'REFUND_FEE_ALREADY_INITIATED',
+  REFUND_FEE_NOT_INITIATED = 'REFUND_FEE_NOT_INITIATED',
+  REFUND_FEE_ALREADY_RESOLVED = 'REFUND_FEE_ALREADY_RESOLVED',
+  REFUND_FEE_NOT_REVERSED = 'REFUND_FEE_NOT_REVERSED',
+  REFUND_FEE_AMOUNT_MISMATCH = 'REFUND_FEE_AMOUNT_MISMATCH',
   // System
   INTERNAL_ERROR = 'INTERNAL_ERROR',
   SERVICE_UNAVAILABLE = 'SERVICE_UNAVAILABLE',
@@ -250,6 +259,96 @@ export class AppError extends Error {
       ErrorCode.SETTLEMENT_ALREADY_RESOLVED,
       HttpStatus.CONFLICT,
       'This settlement has already succeeded or failed; its funds are no longer held.',
+      false,
+      details
+    )
+  }
+
+  static refundAlreadyInitiated(refundId: string): AppError {
+    return new AppError(
+      ErrorCode.REFUND_ALREADY_INITIATED,
+      HttpStatus.CONFLICT,
+      `Refund ${refundId} has already been initiated.`,
+      false,
+      { refundId }
+    )
+  }
+
+  static refundNotInitiated(refundId: string): AppError {
+    return new AppError(
+      ErrorCode.REFUND_NOT_INITIATED,
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      `Refund ${refundId} was never initiated.`,
+      false,
+      { refundId }
+    )
+  }
+
+  static refundAlreadyResolved(details: Record<string, unknown>): AppError {
+    return new AppError(
+      ErrorCode.REFUND_ALREADY_RESOLVED,
+      HttpStatus.CONFLICT,
+      'This refund has already succeeded or failed.',
+      false,
+      details
+    )
+  }
+
+  static refundAmountMismatch(details: Record<string, unknown>): AppError {
+    return new AppError(
+      ErrorCode.REFUND_AMOUNT_MISMATCH,
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      'Refund amount does not match the outstanding amount for this refund.',
+      false,
+      details
+    )
+  }
+
+  static refundFeeAlreadyInitiated(details: Record<string, unknown>): AppError {
+    return new AppError(
+      ErrorCode.REFUND_FEE_ALREADY_INITIATED,
+      HttpStatus.CONFLICT,
+      'The transfer fee for this refund has already been initiated.',
+      false,
+      details
+    )
+  }
+
+  static refundFeeNotInitiated(details: Record<string, unknown>): AppError {
+    return new AppError(
+      ErrorCode.REFUND_FEE_NOT_INITIATED,
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      'The transfer fee for this refund was never initiated.',
+      false,
+      details
+    )
+  }
+
+  static refundFeeAlreadyResolved(details: Record<string, unknown>): AppError {
+    return new AppError(
+      ErrorCode.REFUND_FEE_ALREADY_RESOLVED,
+      HttpStatus.CONFLICT,
+      'The transfer fee for this refund has already succeeded or been reversed; it is no longer held.',
+      false,
+      details
+    )
+  }
+
+  static refundFeeNotReversed(details: Record<string, unknown>): AppError {
+    return new AppError(
+      ErrorCode.REFUND_FEE_NOT_REVERSED,
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      'This transfer fee has no returned funds to re-debit; it must have been reversed first.',
+      false,
+      details
+    )
+  }
+
+  static refundFeeAmountMismatch(details: Record<string, unknown>): AppError {
+    return new AppError(
+      ErrorCode.REFUND_FEE_AMOUNT_MISMATCH,
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      'Fee amount does not match the outstanding transfer fee for this refund.',
       false,
       details
     )
