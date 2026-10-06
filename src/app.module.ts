@@ -14,6 +14,8 @@ import { ConversionsModule } from './conversions/conversions.module';
 import { SettlementsModule } from './settlements/settlements.module';
 import { EntriesModule } from './entries/entries.module';
 import { RefundsModule } from './refunds/refunds.module';
+import { ReconciliationModule } from './reconciliation/reconciliation.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -27,7 +29,9 @@ import { RefundsModule } from './refunds/refunds.module';
     ConversionsModule,
     SettlementsModule,
     EntriesModule,
-    RefundsModule
+    RefundsModule,
+    ReconciliationModule,
+    ReportsModule
   ],
   controllers: [HealthController],
   providers: [

@@ -59,10 +59,10 @@ export class LedgerHarness {
     this.referenceEntryIds = jest.fn(async (reference: string, operationType: string) =>
       options.entryIdsFor ? options.entryIdsFor(reference, operationType) : [],
     );
-    this.post = jest.fn((args: PostArgs<any>) => this.run(args));
+    this.post = jest.fn((args: PostArgs<any>) => this.trigger(args));
   }
 
-  private async run<T>(args: PostArgs<T>): Promise<T> {
+  private async trigger<T>(args: PostArgs<T>): Promise<T> {
     this.calls.push(args);
 
     const pre: PrePostContext = {

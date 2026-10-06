@@ -20,6 +20,8 @@ import { EntriesRepository } from '../../../src/ledger/entries.repository';
 import { PostingsRepository } from '../../../src/ledger/postings.repository';
 import { EntriesModule } from '../../../src/entries/entries.module';
 import { RefundsModule } from '../../../src/refunds/refunds.module';
+import { ReconciliationModule } from '../../../src/reconciliation/reconciliation.module';
+import { ReportsModule } from '../../../src/reports/reports.module';
 import { RefundsService } from '../../../src/refunds/refunds.service';
 import { RefundsController } from '../../../src/refunds/refunds.controller';
 import { EntriesService } from '../../../src/entries/entries.service';
@@ -54,6 +56,8 @@ describe('AppModule', () => {
       SettlementsModule,
       EntriesModule,
       RefundsModule,
+      ReconciliationModule,
+      ReportsModule,
     ]);
   });
 

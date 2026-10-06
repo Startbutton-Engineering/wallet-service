@@ -11,6 +11,8 @@ describe('loadConfig', () => {
       occMaxRetries: 3,
       httpPort: 3003,
       serverEnv: 'development',
+      reconciliation: { enabled: false, runAt: '02:00', timeZone: 'Africa/Lagos', pollIntervalMs: 300000 },
+      slack: { enabled: false, ledgerIntegrityWebhookUrl: '' },
     });
   });
 
@@ -24,6 +26,12 @@ describe('loadConfig', () => {
         OCC_MAX_RETRIES: '9',
         HTTP_PORT: '8080',
         SERVER_ENV: 'production',
+        RECONCILIATION_ENABLED: 'true',
+        RECONCILIATION_RUN_AT: '03:30',
+        RECONCILIATION_TIMEZONE: 'Europe/London',
+        RECONCILIATION_POLL_INTERVAL_MS: '60000',
+        ENABLE_SLACK_NOTIFICATIONS: 'true',
+        SLACK_LEDGER_INTEGRITY_WEBHOOK_URL: 'https://hooks.slack.com/services/x',
       } as NodeJS.ProcessEnv),
     ).toEqual({
       mongoUri: 'mongodb://mongo:27017',
@@ -33,6 +41,8 @@ describe('loadConfig', () => {
       occMaxRetries: 9,
       httpPort: 8080,
       serverEnv: 'production',
+      reconciliation: { enabled: true, runAt: '03:30', timeZone: 'Europe/London', pollIntervalMs: 60000 },
+      slack: { enabled: true, ledgerIntegrityWebhookUrl: 'https://hooks.slack.com/services/x' },
     });
   });
 
