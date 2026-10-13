@@ -115,7 +115,7 @@ describe('mongo schemas', () => {
       expect(defaultOf(PostingSchema, 'walletType')).toBeNull();
     });
 
-    it('indexes the account statement, the operation and the reference lookups', () => {
+    it('indexes the account statement, the operation, the reference lookups and reconciliation', () => {
       expect(indexes(PostingSchema)).toEqual([
         { accountId: 1, sequence: 1 },
         // Resolves a single-account statement's from/to into a sequence range.
@@ -125,6 +125,8 @@ describe('mongo schemas', () => {
         { operationId: 1 },
         // Serves referenceNetAmount; the old { tenantId, reference } index is its prefix.
         { tenantId: 1, reference: 1, accountType: 1, currency: 1, operationType: 1 },
+        // Covers reconciliation's per-account sum(postings).
+        { accountId: 1, direction: 1, amount: 1 },
       ]);
     });
   });

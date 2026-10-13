@@ -67,3 +67,4 @@ PostingSchema.index({ accountId: 1, createdAt: 1, sequence: 1 });
 PostingSchema.index({ tenantId: 1, ownerId: 1, currency: 1, createdAt: 1, _id: 1 });
 PostingSchema.index({ operationId: 1 });
 PostingSchema.index({ tenantId: 1, reference: 1, accountType: 1, currency: 1, operationType: 1 });
+PostingSchema.index({ accountId: 1, direction: 1, amount: 1 });
