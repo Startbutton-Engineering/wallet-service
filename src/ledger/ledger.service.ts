@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from "@nestjs/common";
+import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { ClientSession, Model, QueryFilter, Types, mongo } from "mongoose";
 import { EntryDoc, EntryI, OutboxEventI, PostingDoc, signedDelta } from "./types";
@@ -51,6 +51,8 @@ export interface PostArgs<T> {
 
 @Injectable()
 export class LedgerService implements OnModuleInit {
+  private readonly logger = new Logger('Ledger');
+
   constructor(
     @InjectModel(Posting.name) private readonly postings: Model<PostingDoc>,
     @InjectModel(Entry.name) private readonly entries: Model<EntryDoc>,
@@ -68,10 +70,34 @@ export class LedgerService implements OnModuleInit {
   }
 
   async post<T>(args: PostArgs<T>): Promise<T> {
+    const startedAt = Date.now();
+    const tag = logTag(args);
+    try {
+      const response = await this.postOnce(args, tag);
+      this.logger.log(`${tag} completed in ${Date.now() - startedAt}ms ${describeResult(response)}`);
+      return response;
+    } catch (err) {
+      if (err instanceof AppError) {
+        this.logger.warn(
+          `${tag} rejected in ${Date.now() - startedAt}ms code=${err.code} message="${err.message}"` +
+            (err.details ? ` details=${safeJson(err.details)}` : ''),
+        );
+      } else {
+        this.logger.error(
+          `${tag} failed in ${Date.now() - startedAt}ms`,
+          err instanceof Error ? err.stack : String(err),
+        );
+      }
+      throw err;
+    }
+  }
+
+  private async postOnce<T>(args: PostArgs<T>, tag: string): Promise<T> {
     const { tenantId, idempotencyKey, operationType } = args;
+    this.logger.log(`${tag} started payload=${safeJson(args.requestPayload)}`);
     const requestHash = IdempotencyRepository.hash(operationType, args.requestPayload);
     const existing = await this.idempotency.find(tenantId, idempotencyKey);
-    if (existing) return this.replay<T>(existing, requestHash, idempotencyKey);
+    if (existing) return this.replay<T>(existing, requestHash, idempotencyKey, tag);
 
     for (let attempt = 0; attempt < OCC_MAX_RETRIES; attempt++) {
       const session = await this.accounts.db.startSession();
@@ -87,12 +113,16 @@ export class LedgerService implements OnModuleInit {
       } catch (err) {
         await session.abortTransaction().catch(() => undefined);
         if (err instanceof OccConflict || isTransient(err)) {
-          continue; 
+          this.logger.warn(
+            `${tag} ${err instanceof OccConflict ? 'OCC conflict' : 'transient transaction error'}, ` +
+              `retrying (attempt ${attempt + 1}/${OCC_MAX_RETRIES})`,
+          );
+          continue;
         }
         if (isDuplicateKey(err)) {
           // Concurrent first-writter won the idempotency race, return its result
           const existingRecord = await this.idempotency.find(tenantId, idempotencyKey);
-          if (existingRecord) return this.replay<T>(existingRecord, requestHash, idempotencyKey);
+          if (existingRecord) return this.replay<T>(existingRecord, requestHash, idempotencyKey, tag);
           continue;
         }
         throw err;
@@ -107,8 +137,10 @@ export class LedgerService implements OnModuleInit {
     existing: { requestHash: string; result: unknown },
     requestHash: string,
     key: string,
+    tag: string,
   ): T {
     if (existing.requestHash !== requestHash) throw AppError.IdempotencyKeyReuse(key);
+    this.logger.log(`${tag} idempotent replay, returning stored result`);
     return existing.result as T;
   }
 
@@ -402,6 +434,33 @@ export class LedgerService implements OnModuleInit {
       .lean<AccountDoc[]>()
       .exec();
     return new Map(docs.map((d) => [refKey(refOf(d)), d]))
+  }
+}
+
+/** Prefix for every log line of one post() call: the operation (collection.receive,
+ * payout.initiate, refund.success, ...) plus what identifies it across services. */
+function logTag(args: PostArgs<unknown>): string {
+  return (
+    `[${args.operationType}] reference=${args.reference ?? '-'} ` +
+    `tenant=${args.tenantId || '-'} idempotencyKey=${args.idempotencyKey}`
+  );
+}
+
+function describeResult(response: unknown): string {
+  if (!response || typeof response !== 'object') return '';
+  const { operationId, entryId, entryIds } = response as Record<string, unknown>;
+  return [
+    operationId ? `operationId=${operationId}` : '',
+    entryId ? `entryId=${entryId}` : '',
+    Array.isArray(entryIds) ? `entryIds=${entryIds.join(',')}` : '',
+  ].filter(Boolean).join(' ');
+}
+
+function safeJson(value: unknown): string {
+  try {
+    return JSON.stringify(value, (_k, v) => (typeof v === 'bigint' ? v.toString() : v));
+  } catch {
+    return String(value);
   }
 }
 

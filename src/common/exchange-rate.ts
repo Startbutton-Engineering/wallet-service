@@ -13,10 +13,10 @@ export function divideRoundHalfUp(numerator: bigint, denominator: bigint): bigin
 }
 
 /** Converts an amount in one currency's minor units to another's, given a decimal
- * exchange rate quoted as "whole `from`-currency units per 1 whole `to`-currency unit"
- * (e.g. NGN per USD: rate "1500.50" means 1 USD = 1500.50 NGN).
+ * exchange rate quoted as "whole `to`-currency units per 1 whole `from`-currency unit"
+ * (e.g. USD per NGN: rate "0.000726" means 1 NGN = 0.000726 USD).
  *
- * Rounds to the nearest `to`-currency minor unit, half rounding up. 
+ * Rounds to the nearest `to`-currency minor unit, half rounding up.
  **/
 export function convertMinorUnits(
   amount: bigint,
@@ -28,7 +28,7 @@ export function convertMinorUnits(
   const { integer: rateInt, scale: rateScale } = parseScaledDecimal(rate);
   if (rateInt <= 0n) throw new Error(`Exchange rate must be positive, got ${rate}`);
 
-  const numerator = amount * 10n ** BigInt(rateScale + toScale);
-  const denominator = rateInt * 10n ** BigInt(fromScale);
+  const numerator = amount * rateInt * 10n ** BigInt(toScale);
+  const denominator = 10n ** BigInt(rateScale + fromScale);
   return divideRoundHalfUp(numerator, denominator);
 }

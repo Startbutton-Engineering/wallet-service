@@ -37,31 +37,42 @@ describe('divideRoundHalfUp', () => {
 });
 
 describe('convertMinorUnits', () => {
-  it('converts exactly when the division has no remainder', () => {
-    // ₦1500.00 at ₦1500/$1 -> $1.00
-    expect(convertMinorUnits(150_000n, 2, 2, '1500')).toBe(100n);
+  it('converts exactly when the product has no remainder', () => {
+    // ₦1500.00 at $0.0005/₦1 -> $0.75
+    expect(convertMinorUnits(150_000n, 2, 2, '0.0005')).toBe(75n);
   });
 
-  it('rounds a repeating decimal half-up', () => {
-    // ₦1000.00 at ₦1500.50/$1 -> $0.666... -> $0.67
-    expect(convertMinorUnits(100_000n, 2, 2, '1500.50')).toBe(67n);
+  it('rounds half-up when the product falls between minor units', () => {
+    // ₦1000.00 at $0.000666/₦1 -> $0.666 -> $0.67
+    expect(convertMinorUnits(100_000n, 2, 2, '0.000666')).toBe(67n);
   });
 
   it('handles a rate with more decimal places than either currency scale', () => {
-    expect(convertMinorUnits(1_000_000n, 2, 2, '1500.1234')).toBe(667n);
+    // ₦10000.00 at $0.00066661234/₦1 -> $6.6661234 -> $6.67
+    expect(convertMinorUnits(1_000_000n, 2, 2, '0.00066661234')).toBe(667n);
+  });
+
+  it('converts back-end\'s stored exchangeRate as-is', () => {
+    // ₦100000.00 at $0.0007262216864320002/₦1 -> $72.62216... -> $72.62
+    expect(convertMinorUnits(10_000_000n, 2, 2, '0.0007262216864320002')).toBe(7262n);
+  });
+
+  it('converts into a weaker currency with a rate above 1', () => {
+    // $1.00 at ₦1377/$1 -> ₦1377.00
+    expect(convertMinorUnits(100n, 2, 2, '1377')).toBe(137_700n);
   });
 
   it('rounds exactly on the half-up boundary', () => {
-    // ₦1.01 at ₦2/$1 -> $0.505 -> $0.51
-    expect(convertMinorUnits(101n, 2, 2, '2')).toBe(51n);
+    // ₦1.01 at $0.5/₦1 -> $0.505 -> $0.51
+    expect(convertMinorUnits(101n, 2, 2, '0.5')).toBe(51n);
   });
 
   it('rounds down to zero when the converted amount is under half a minor unit', () => {
-    expect(convertMinorUnits(1n, 2, 2, '300')).toBe(0n);
+    expect(convertMinorUnits(1n, 2, 2, '0.003')).toBe(0n);
   });
 
   it('returns zero for a zero amount without throwing', () => {
-    expect(convertMinorUnits(0n, 2, 2, '1500')).toBe(0n);
+    expect(convertMinorUnits(0n, 2, 2, '0.0005')).toBe(0n);
   });
 
   it('loses no precision for large amounts', () => {
@@ -70,11 +81,13 @@ describe('convertMinorUnits', () => {
   });
 
   it('generalizes across differing minor-unit scales', () => {
-    // ₦1500.00 (scale 2) at ₦1500/$1 -> $1.00 in a scale-10 currency
-    expect(convertMinorUnits(150_000n, 2, 10, '1500')).toBe(10_000_000_000n);
+    // ₦2000.00 (scale 2) at $0.0005/₦1 -> $1.00 in a scale-10 currency
+    expect(convertMinorUnits(200_000n, 2, 10, '0.0005')).toBe(10_000_000_000n);
+    // UGX 10000 (scale 0) at $0.000269/UGX -> $2.69
+    expect(convertMinorUnits(10_000n, 0, 2, '0.000269')).toBe(269n);
   });
 
-  it.each(['0', '-5', '1e3', 'abc'])('rejects an invalid rate %s', (rate) => {
+  it.each(['0', '0.000', '-5', '1e3', 'abc'])('rejects an invalid rate %s', (rate) => {
     expect(() => convertMinorUnits(100n, 2, 2, rate)).toThrow();
   });
 

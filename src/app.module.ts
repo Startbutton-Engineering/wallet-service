@@ -1,9 +1,10 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { HealthController } from './health/health.controller';
 import { DatabaseModule } from './database/database.module';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ApiKeyGuard } from './auth/api-key.guard';
 import { ResponseInterceptor } from './common/response.interceptor';
+import { RequestLoggerMiddleware } from './common/request-logger.middleware';
 import { CurrencyModule } from './currency/currency.module';
 import { AccountsModule } from './accounts/accounts.module';
 import { WalletsModule } from './wallets/wallets.module';
@@ -35,4 +36,8 @@ import { RefundsModule } from './refunds/refunds.module';
     { provide: APP_INTERCEPTOR, useClass: ResponseInterceptor }
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(RequestLoggerMiddleware).forRoutes('*');
+  }
+}

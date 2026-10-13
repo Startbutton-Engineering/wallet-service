@@ -2,6 +2,7 @@ import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logge
 import { Response } from 'express';
 import { ErrorResponse, ErrorCode, AppError } from './errors'
 import { ApiErrorData, ApiResponse } from "./api-response";
+import { ERROR_LOCAL } from "./request-logger.middleware";
 
 @Catch()
 export class AppExceptionsFilter implements ExceptionFilter {
@@ -36,6 +37,7 @@ export class AppExceptionsFilter implements ExceptionFilter {
   /** Errors use the same envelope as successes: the human-readable text stays in
    * `message`, the machine-readable code/retryable/details move into `data`. */
   private send(res: Response, status: number, error: ErrorResponse): void {
+    if (res.locals) res.locals[ERROR_LOCAL] = error;
     const body: ApiResponse<ApiErrorData> = {
       success: false,
       message: error.message,
