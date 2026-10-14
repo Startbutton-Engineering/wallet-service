@@ -74,9 +74,27 @@ describe('RefundsService', () => {
       entryId: 'entry-1',
       refundId: 'rf-1',
       status: 'pending',
+      deficit: '50',
       balance: expect.objectContaining({ walletType: 'collection' }),
     });
     expect(ledger.accountBalance).toHaveBeenCalledWith(OWNER, CURRENCY, 'collection');
+  });
+
+  it('returns a zero deficit when available covers the whole pending refund', async () => {
+    build({ balance: () => walletBalance({ available: 500n }) });
+
+    await expect(service.status(base)).resolves.toMatchObject({ deficit: '0' });
+  });
+
+  it('leaves the deficit off the response for the other transitions', async () => {
+    build({
+      netAmount: (_ref, account) => ((account as any).name === 'external:refunds' ? 150n : 0n),
+      entryIdsFor: () => ['entry-pending'],
+    });
+
+    const result = await service.status({ ...base, status: 'success' });
+
+    expect(result).not.toHaveProperty('deficit');
   });
 
   it('emits the transition event with the split on it', async () => {

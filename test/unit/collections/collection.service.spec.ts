@@ -170,6 +170,28 @@ describe('CollectionsService', () => {
       });
     });
 
+    it('returns the debt paydown split on the response', async () => {
+      build({
+        netAmount: () => 1000n,
+        balance: () => walletBalance({ refundChargeback: -400n }),
+      });
+
+      await expect(service.settled(base)).resolves.toEqual({
+        operationId: ledger.operationId,
+        entryId: 'entry-1',
+        collectionId: 'col-1',
+        settledToDebit: '400',
+        amountToCredit: '600',
+        balance: expect.objectContaining({ walletType: 'collection' }),
+      });
+    });
+
+    it('returns a zero paydown when the owner carries no debt', async () => {
+      build({ netAmount: () => 1000n });
+
+      await expect(service.settled(base)).resolves.toMatchObject({ settledToDebit: '0', amountToCredit: '1000' });
+    });
+
     it('emits only the settled event when there was no debt', async () => {
       build({ netAmount: () => 1000n });
 
