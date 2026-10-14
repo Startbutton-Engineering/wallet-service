@@ -17,6 +17,8 @@ import { EntriesModule } from './entries/entries.module';
 import { RefundsModule } from './refunds/refunds.module';
 import { TopupsModule } from './topups/topups.module';
 import { LiensModule } from './liens/liens.module';
+import { ReconciliationModule } from './reconciliation/reconciliation.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -32,7 +34,9 @@ import { LiensModule } from './liens/liens.module';
     EntriesModule,
     RefundsModule,
     TopupsModule,
-    LiensModule
+    LiensModule,
+    ReconciliationModule,
+    ReportsModule
   ],
   controllers: [HealthController],
   providers: [
