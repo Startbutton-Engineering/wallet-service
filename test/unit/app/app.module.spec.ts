@@ -25,6 +25,9 @@ import { RefundsController } from '../../../src/refunds/refunds.controller';
 import { TopupsModule } from '../../../src/topups/topups.module';
 import { TopupsService } from '../../../src/topups/topups.service';
 import { TopupsController } from '../../../src/topups/topups.controller';
+import { LiensModule } from '../../../src/liens/liens.module';
+import { LiensService } from '../../../src/liens/liens.service';
+import { LiensController } from '../../../src/liens/liens.controller';
 import { EntriesService } from '../../../src/entries/entries.service';
 import { EntriesController } from '../../../src/entries/entries.controller';
 import { StatementService } from '../../../src/wallets/statement.service';
@@ -58,6 +61,7 @@ describe('AppModule', () => {
       EntriesModule,
       RefundsModule,
       TopupsModule,
+      LiensModule,
     ]);
   });
 
@@ -88,6 +92,7 @@ describe('feature modules', () => {
     ['PayoutsModule', PayoutsModule, [PayoutsService], [PayoutsController]],
     ['RefundsModule', RefundsModule, [RefundsService], [RefundsController]],
     ['TopupsModule', TopupsModule, [TopupsService], [TopupsController]],
+    ['LiensModule', LiensModule, [LiensService], [LiensController]],
     ['ConversionsModule', ConversionsModule, [ConversionsService], [ConversionsController]],
     ['SettlementsModule', SettlementsModule, [SettlementsService], [SettlementsController]],
     ['EntriesModule', EntriesModule, [EntriesService], [EntriesController]],

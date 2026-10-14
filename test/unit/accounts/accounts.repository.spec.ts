@@ -144,6 +144,7 @@ describe('AccountsRepository', () => {
           userAccount('held-inflow', 200n),
           userAccount('held-outflow', 50n),
           userAccount('refund-chargeback', -30n),
+          userAccount('lien', 100n),
         ]),
       );
 
@@ -155,9 +156,17 @@ describe('AccountsRepository', () => {
         available: 500n,
         heldInflow: 200n,
         heldOutflow: 50n,
-        ledger: 720n,
+        ledger: 820n,
         refundChargeback: -30n,
+        lien: 100n,
       });
+    });
+
+    it('keeps a lien in the ledger total though it is out of available', async () => {
+      model.find.mockReturnValue(mockQuery([userAccount('available', 600n), userAccount('lien', 400n)]));
+
+      const balance = await repo.balanceBreakdown(TENANT, OWNER, CURRENCY, 'payout');
+      expect(balance).toMatchObject({ available: 600n, lien: 400n, ledger: 1000n });
     });
 
     it('nets the refund-chargeback debt into the ledger total', async () => {
@@ -176,6 +185,7 @@ describe('AccountsRepository', () => {
         heldInflow: 0n,
         heldOutflow: 0n,
         refundChargeback: 0n,
+        lien: 0n,
         ledger: 100n,
       });
     });

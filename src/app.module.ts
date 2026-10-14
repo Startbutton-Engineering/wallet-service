@@ -16,6 +16,7 @@ import { SettlementsModule } from './settlements/settlements.module';
 import { EntriesModule } from './entries/entries.module';
 import { RefundsModule } from './refunds/refunds.module';
 import { TopupsModule } from './topups/topups.module';
+import { LiensModule } from './liens/liens.module';
 
 @Module({
   imports: [
@@ -30,7 +31,8 @@ import { TopupsModule } from './topups/topups.module';
     SettlementsModule,
     EntriesModule,
     RefundsModule,
-    TopupsModule
+    TopupsModule,
+    LiensModule
   ],
   controllers: [HealthController],
   providers: [

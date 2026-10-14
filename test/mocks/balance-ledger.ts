@@ -19,7 +19,7 @@ export class BalanceLedger {
   readonly ctx = {
     session: undefined as never,
     readBalance: async (ownerId: string, currency: string, walletType: WalletType) => {
-      const of = (type: 'available' | 'held-inflow' | 'held-outflow' | 'refund-chargeback') =>
+      const of = (type: 'available' | 'held-inflow' | 'held-outflow' | 'refund-chargeback' | 'lien') =>
         this.balanceOf(accountRef.user(ownerId, currency, walletType, type));
       return walletBalance({
         ownerId,
@@ -29,6 +29,7 @@ export class BalanceLedger {
         heldInflow: of('held-inflow'),
         heldOutflow: of('held-outflow'),
         refundChargeback: of('refund-chargeback'),
+        lien: of('lien'),
       });
     },
     referenceNetAmount: async (reference: string, account: AccountRef, operationTypes?: string[]) => {
