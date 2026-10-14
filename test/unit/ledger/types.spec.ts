@@ -45,6 +45,9 @@ describe('OutboxEventType', () => {
       'RefundFeeReversed',
       'RefundFeeReverseFailed',
       'RefundChargebackSettled',
+      'TopupCredited',
+      'LienPlaced',
+      'LienReleased',
     ]);
   });
 });

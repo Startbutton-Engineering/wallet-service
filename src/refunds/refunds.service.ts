@@ -10,6 +10,7 @@ export interface RefundResult {
   entryId: string;
   refundId: string;
   status: RefundStatus;
+  deficit?: string;
   balance: ReturnType<typeof balanceToJson>;
 }
 
@@ -75,6 +76,7 @@ export class RefundsService {
             entryId: post.entryIds[0],
             refundId,
             status,
+            ...(planned.eventMetaData.deficit !== undefined && { deficit: planned.eventMetaData.deficit }),
             balance: balanceToJson(await post.accountBalance(ownerId, currency, 'collection')),
           }),
           buildEvent: async (post) => ({

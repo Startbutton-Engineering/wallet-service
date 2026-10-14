@@ -14,6 +14,7 @@ export const initiateConversionSchema = z
     fromCurrency: z.string().min(1),
     toCurrency: z.string().min(1),
     fromAmount: amountString,
+    /** toCurrency per 1 fromCurrency, e.g. NGN→USD "0.000726" (1 NGN = 0.000726 USD). */
     rate: rateString,
     walletType: z.enum(WALLET_TYPES).default('collection'),
   })

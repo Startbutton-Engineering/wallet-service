@@ -17,6 +17,8 @@ export interface CollectionResult {
   operationId: string;
   entryId: string;
   collectionId: string;
+  settledToDebit?: string;
+  amountToCredit?: string;
   balance: ReturnType<typeof balanceToJson>
 }
 
@@ -116,6 +118,10 @@ export class CollectionsService {
           settledToDebit: settled.toString(),
           amountToCredit: amountToCredit.toString(),
         },
+        responseMeta: {
+          settledToDebit: settled.toString(),
+          amountToCredit: amountToCredit.toString(),
+        },
         alsoEmit: settled > 0n ? [OutboxEventType.REFUND_CHARGEBACK_SETTLED] : []
       }
     })
@@ -211,6 +217,7 @@ export class CollectionsService {
       guardHeld?: boolean;
       reversalOf?: string;
       eventMetaData?: Record<string, unknown>;
+      responseMeta?: Pick<CollectionResult, 'settledToDebit' | 'amountToCredit'>;
       alsoEmit?: string[]
     }>
   ):Promise<CollectionResult> {
@@ -233,6 +240,7 @@ export class CollectionsService {
             operationId: post.operationId,
             entryId: post.entryIds[0],
             collectionId,
+            ...planned.responseMeta,
             balance: balanceToJson(await post.accountBalance(ownerId, currency, 'collection'))
           }),
           buildEvent: async(post) => this.events(

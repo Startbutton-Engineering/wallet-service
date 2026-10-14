@@ -146,6 +146,20 @@ describe('Settlements', () => {
 
     expect(res.status).toBe(409);
     expect(res.body.data.code).toBe('SETTLEMENT_ALREADY_RESOLVED');
+    expect(res.body.data.details).toMatchObject({ settlementId, initiated: '10500', resolution: 'success' });
+  });
+
+  it('names a failed resolution when a failed settlement is resolved again', async () => {
+    const ownerId = await givenCollectionWallet('50000');
+    const settlementId = randomUUID();
+
+    await initiate({ settlementId, ownerId, currency: 'USD', amount: '10500' });
+    await fail({ settlementId, ownerId, currency: 'USD' });
+    const res = await succeed({ settlementId, ownerId, currency: 'USD' });
+
+    expect(res.status).toBe(409);
+    expect(res.body.data.code).toBe('SETTLEMENT_ALREADY_RESOLVED');
+    expect(res.body.data.details.resolution).toBe('failed');
   });
 
   it('replays the same idempotency key without posting twice', async () => {

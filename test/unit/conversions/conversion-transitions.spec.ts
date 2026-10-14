@@ -19,7 +19,7 @@ const INITIATE_PARAMS: InitiateParams = {
   fromCurrency: 'NGN',
   toCurrency: 'USD',
   fromAmount: 150_000n,
-  rate: '1500',
+  rate: '0.000666667',
   fromScale: 2,
   toScale: 2,
   walletType: 'collection',
@@ -118,7 +118,7 @@ describe('conversion transitions', () => {
   describe('postings', () => {
     it('initiate moves fromCurrency available into held-inflow and fronts toCurrency held-inflow from the fx desk', async () => {
       const { plan, toAmount } = await ledger.planInitiateOnly();
-      expect(toAmount).toBe(100n); // ₦1500.00 at rate 1500 -> $1.00
+      expect(toAmount).toBe(100n); // ₦1500.00 at $0.000666667/₦1 -> $1.0000005 -> $1.00
 
       expect(plan.entries).toHaveLength(2);
       expect(plan.entries[0].currency).toBe('NGN');
@@ -140,7 +140,7 @@ describe('conversion transitions', () => {
       const { plan } = await ledger.planInitiateOnly();
       const expectedMetadata = {
         conversionId: 'cv-1', ownerId: 'm1', fromCurrency: 'NGN', toCurrency: 'USD',
-        rate: '1500', fromAmount: '150000', toAmount: '100', walletType: 'collection',
+        rate: '0.000666667', fromAmount: '150000', toAmount: '100', walletType: 'collection',
       };
       expect(plan.entries[0].metadata).toEqual(expectedMetadata);
       expect(plan.entries[1].metadata).toEqual(expectedMetadata);
@@ -149,11 +149,11 @@ describe('conversion transitions', () => {
     it('generalizes to any registered currency pair, not just NGN/USD', async () => {
       const params: InitiateParams = {
         conversionId: 'cv-9', ownerId: 'm1', fromCurrency: 'USD', toCurrency: 'GBP',
-        fromAmount: 10_000n, rate: '1.25', fromScale: 2, toScale: 2, walletType: 'collection',
+        fromAmount: 10_000n, rate: '0.8', fromScale: 2, toScale: 2, walletType: 'collection',
       };
       const { plan, toAmount } = await ledger.planInitiateOnly(params);
 
-      expect(toAmount).toBe(8_000n); // $100.00 at 1.25 USD/GBP -> £80.00
+      expect(toAmount).toBe(8_000n); // $100.00 at £0.8/$1 -> £80.00
       expect(plan.entries[0].currency).toBe('USD');
       expect(plan.entries[0].postings.map((p) => [accountId(p.account), p.direction])).toEqual([
         [refKey(accountRef.collectionWallet('m1', 'USD', 'available')), 'debit'],
@@ -296,7 +296,7 @@ describe('conversion transitions', () => {
     });
 
     it('rejects an amount and rate that round the toCurrency leg to zero', async () => {
-      const tiny = { ...INITIATE_PARAMS, fromAmount: 1n, rate: '300' };
+      const tiny = { ...INITIATE_PARAMS, fromAmount: 1n, rate: '0.003' };
       expect(await codeOf(ledger.planInitiateOnly(tiny))).toBe(ErrorCode.VALIDATION_FAILED);
     });
 

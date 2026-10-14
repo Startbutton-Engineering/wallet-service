@@ -113,5 +113,8 @@ export enum OutboxEventType {
   REFUND_FEE_SUCCEEDED = 'RefundFeeSucceeded',
   REFUND_FEE_REVERSED = 'RefundFeeReversed',
   REFUND_FEE_REVERSE_FAILED = 'RefundFeeReverseFailed',
-  REFUND_CHARGEBACK_SETTLED = 'RefundChargebackSettled'
+  REFUND_CHARGEBACK_SETTLED = 'RefundChargebackSettled',
+  TOPUP_CREDITED = 'TopupCredited',
+  LIEN_PLACED = 'LienPlaced',
+  LIEN_RELEASED = 'LienReleased'
 }

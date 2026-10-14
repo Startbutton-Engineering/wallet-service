@@ -22,11 +22,12 @@ export function walletBalance(overrides: Partial<WalletBalance> = {}): WalletBal
     heldOutflow: 0n,
     ledger: 0n,
     refundChargeback: 0n,
+    lien: 0n,
     ...overrides,
   };
   return {
     ...base,
-    ledger: overrides.ledger ?? base.available + base.heldInflow + base.heldOutflow + base.refundChargeback,
+    ledger: overrides.ledger ?? base.available + base.heldInflow + base.heldOutflow + base.refundChargeback + base.lien,
   };
 }
 

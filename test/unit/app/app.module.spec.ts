@@ -24,6 +24,12 @@ import { ReconciliationModule } from '../../../src/reconciliation/reconciliation
 import { ReportsModule } from '../../../src/reports/reports.module';
 import { RefundsService } from '../../../src/refunds/refunds.service';
 import { RefundsController } from '../../../src/refunds/refunds.controller';
+import { TopupsModule } from '../../../src/topups/topups.module';
+import { TopupsService } from '../../../src/topups/topups.service';
+import { TopupsController } from '../../../src/topups/topups.controller';
+import { LiensModule } from '../../../src/liens/liens.module';
+import { LiensService } from '../../../src/liens/liens.service';
+import { LiensController } from '../../../src/liens/liens.controller';
 import { EntriesService } from '../../../src/entries/entries.service';
 import { EntriesController } from '../../../src/entries/entries.controller';
 import { StatementService } from '../../../src/wallets/statement.service';
@@ -56,6 +62,8 @@ describe('AppModule', () => {
       SettlementsModule,
       EntriesModule,
       RefundsModule,
+      TopupsModule,
+      LiensModule,
       ReconciliationModule,
       ReportsModule,
     ]);
@@ -87,6 +95,8 @@ describe('feature modules', () => {
     ['CollectionsModule', CollectionsModule, [CollectionsService], [CollectionsController]],
     ['PayoutsModule', PayoutsModule, [PayoutsService], [PayoutsController]],
     ['RefundsModule', RefundsModule, [RefundsService], [RefundsController]],
+    ['TopupsModule', TopupsModule, [TopupsService], [TopupsController]],
+    ['LiensModule', LiensModule, [LiensService], [LiensController]],
     ['ConversionsModule', ConversionsModule, [ConversionsService], [ConversionsController]],
     ['SettlementsModule', SettlementsModule, [SettlementsService], [SettlementsController]],
     ['EntriesModule', EntriesModule, [EntriesService], [EntriesController]],
