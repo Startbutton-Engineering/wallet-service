@@ -97,6 +97,8 @@ export interface WalletBalance {
   ledger: bigint;
   refundChargeback: bigint;
   lien: bigint;
+  legacyPending: bigint;
+  reserveOverdraft: bigint;
 }
 
 export function balanceToJson(bal: WalletBalance) {
@@ -109,6 +111,8 @@ export function balanceToJson(bal: WalletBalance) {
     heldOutflow: bal.heldOutflow.toString(),
     ledger: bal.ledger.toString(),
     refundChargeback: bal.refundChargeback.toString(),
-    lien: bal.lien.toString()
+    lien: bal.lien.toString(),
+    legacyPending: bal.legacyPending.toString(),
+    reserveOverdraft: bal.reserveOverdraft.toString()
   }
 }

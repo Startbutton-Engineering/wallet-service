@@ -10,6 +10,8 @@ describe('balanceToJson', () => {
         heldOutflow: 50n,
         refundChargeback: -30n,
         lien: 100n,
+        legacyPending: 70n,
+        reserveOverdraft: -5n,
       }),
     );
 
@@ -20,9 +22,11 @@ describe('balanceToJson', () => {
       available: '500',
       heldInflow: '200',
       heldOutflow: '50',
-      ledger: '820',
+      ledger: '890',
       refundChargeback: '-30',
       lien: '100',
+      legacyPending: '70',
+      reserveOverdraft: '-5',
     });
     expect(json).not.toHaveProperty('tenantId');
   });

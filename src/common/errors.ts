@@ -39,6 +39,10 @@ export enum ErrorCode {
   TOPUP_ALREADY_CREDITED = 'TOPUP_ALREADY_CREDITED',
   LIEN_ALREADY_PLACED = 'LIEN_ALREADY_PLACED',
   LIEN_ALREADY_RELEASED = 'LIEN_ALREADY_RELEASED',
+  ALREADY_CUT_OVER = 'ALREADY_CUT_OVER',
+  NOT_CUT_OVER = 'NOT_CUT_OVER',
+  REFERENCE_ON_LEDGER = 'REFERENCE_ON_LEDGER',
+  LEGACY_WALLET_UPDATE_FAILED = 'LEGACY_WALLET_UPDATE_FAILED',
   // System
   INTERNAL_ERROR = 'INTERNAL_ERROR',
   SERVICE_UNAVAILABLE = 'SERVICE_UNAVAILABLE',
@@ -385,6 +389,29 @@ export class AppError extends Error {
       false,
       details
     )
+  }
+
+  static alreadyCutOver(ownerId: string): AppError {
+    return new AppError(ErrorCode.ALREADY_CUT_OVER, HttpStatus.CONFLICT, `Owner ${ownerId} has already been cut over to the ledger.`, false, { ownerId })
+  }
+
+  static notCutOver(details: Record<string, unknown>): AppError {
+    return new AppError(ErrorCode.NOT_CUT_OVER, HttpStatus.CONFLICT, 'This wallet has not been cut over to the ledger.', false, details)
+  }
+
+  static referenceOnLedger(details: Record<string, unknown>): AppError {
+    return new AppError(
+      ErrorCode.REFERENCE_ON_LEDGER,
+      HttpStatus.CONFLICT,
+      'This reference already has ledger operations, so it is not a legacy transaction.',
+      false,
+      details
+    )
+  }
+
+  /** A cut-over owner's back-end `wallets` document could not be updated; the whole ledger post is rolled back. */
+  static legacyWalletUpdateFailed(message: string, details?: Record<string, unknown>): AppError {
+    return new AppError(ErrorCode.LEGACY_WALLET_UPDATE_FAILED, HttpStatus.INTERNAL_SERVER_ERROR, message, false, details)
   }
 
   static retryExhausted(): AppError {

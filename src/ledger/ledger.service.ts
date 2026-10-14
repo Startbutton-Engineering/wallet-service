@@ -12,6 +12,8 @@ import { Posting } from "./schemas/posting.schema";
 import { Entry } from "./schemas/entry.schema";
 import { fromDecimal128, toDecimal128 } from "../common/money";
 import { OutboxRepository } from "./outbox.repository";
+import { LegacyWalletsService } from "./legacy-wallets.service";
+import { LegacyRouteService } from "./legacy-route.service";
 
 const OCC_MAX_RETRIES = 8;
 
@@ -59,7 +61,9 @@ export class LedgerService implements OnModuleInit {
     @InjectModel(Account.name) private readonly accounts: Model<AccountDoc>,
     private readonly idempotency: IdempotencyRepository,
     private readonly accountsRepo: AccountsRepository,
-    private readonly outboxRepo: OutboxRepository
+    private readonly outboxRepo: OutboxRepository,
+    private readonly legacyWallets: LegacyWalletsService,
+    private readonly legacyRoute: LegacyRouteService
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -200,7 +204,8 @@ export class LedgerService implements OnModuleInit {
       }
     }
 
-    const legderOperation = await args.generateLedgerOps(PrePostContext)
+    // A transaction from before the owner's cutover is applied the way legacy would have.
+    const legderOperation = (await this.legacyRoute.plan(args, PrePostContext)) ?? await args.generateLedgerOps(PrePostContext)
     this.validatePostingBalanced(legderOperation.entries);
 
     // Provision and load every related accounts
@@ -330,6 +335,12 @@ export class LedgerService implements OnModuleInit {
     }
 
     if (legderOperation.sideEffect) await legderOperation.sideEffect(post);
+    // A cut-over owner's back-end `wallets` document changes in this same transaction.
+    await this.legacyWallets.updateFromLedger(
+      tenantId,
+      postingDocs.filter((p) => p.kind === 'user').map((p) => ({ ownerId: p.ownerId!, currency: p.currency, walletType: p.walletType! })),
+      session,
+    );
     const response = await legderOperation.buildResponse(post);
     const events = await legderOperation.buildEvent(post);
     const eventList = Array.isArray(events) ? events : [events];

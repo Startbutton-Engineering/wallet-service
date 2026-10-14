@@ -10,6 +10,8 @@ import { Entry, EntrySchema } from "./schemas/entry.schema";
 import { Idempotency, IdempotencySchema } from "./schemas/idempotency.schema";
 import { Outbox, OutboxSchema } from "./schemas/outbox.schema";
 import { Account, AccountSchema } from "../accounts/account.schema";
+import { LegacyWalletsService } from "./legacy-wallets.service";
+import { LegacyRouteService } from "./legacy-route.service";
 
 @Global()
 @Module({
@@ -22,7 +24,7 @@ import { Account, AccountSchema } from "../accounts/account.schema";
       { name: Account.name, schema: AccountSchema }
     ])
   ],
-  providers: [ LedgerService, IdempotencyRepository, OutboxRepository, EntriesRepository, PostingsRepository ],
-  exports: [ LedgerService, IdempotencyRepository, OutboxRepository, EntriesRepository, PostingsRepository, MongooseModule ]
+  providers: [ LedgerService, IdempotencyRepository, OutboxRepository, EntriesRepository, PostingsRepository, LegacyWalletsService, LegacyRouteService ],
+  exports: [ LedgerService, IdempotencyRepository, OutboxRepository, EntriesRepository, PostingsRepository, LegacyWalletsService, LegacyRouteService, MongooseModule ]
 })
 export class LedgerModule {}

@@ -116,5 +116,7 @@ export enum OutboxEventType {
   REFUND_CHARGEBACK_SETTLED = 'RefundChargebackSettled',
   TOPUP_CREDITED = 'TopupCredited',
   LIEN_PLACED = 'LienPlaced',
-  LIEN_RELEASED = 'LienReleased'
+  LIEN_RELEASED = 'LienReleased',
+  LEDGER_CUTOVER = 'LedgerCutover',
+  LEGACY_EFFECT_APPLIED = 'LegacyEffectApplied'
 }

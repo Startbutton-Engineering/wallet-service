@@ -28,6 +28,11 @@ import { TopupsModule } from '../../../src/topups/topups.module';
 import { TopupsService } from '../../../src/topups/topups.service';
 import { TopupsController } from '../../../src/topups/topups.controller';
 import { LiensModule } from '../../../src/liens/liens.module';
+import { MigrationsModule } from '../../../src/migrations/migrations.module';
+import { CutoverService } from '../../../src/migrations/cutover.service';
+import { MigrationsController } from '../../../src/migrations/migrations.controller';
+import { LegacyWalletsService } from '../../../src/ledger/legacy-wallets.service';
+import { LegacyRouteService } from '../../../src/ledger/legacy-route.service';
 import { LiensService } from '../../../src/liens/liens.service';
 import { LiensController } from '../../../src/liens/liens.controller';
 import { EntriesService } from '../../../src/entries/entries.service';
@@ -66,6 +71,7 @@ describe('AppModule', () => {
       LiensModule,
       ReconciliationModule,
       ReportsModule,
+      MigrationsModule,
     ]);
   });
 
@@ -87,7 +93,7 @@ describe('feature modules', () => {
     [
       'LedgerModule',
       LedgerModule,
-      [LedgerService, IdempotencyRepository, OutboxRepository, EntriesRepository, PostingsRepository],
+      [LedgerService, IdempotencyRepository, OutboxRepository, EntriesRepository, PostingsRepository, LegacyWalletsService, LegacyRouteService],
       [],
     ],
     ['CurrencyModule', CurrencyModule, [CurrencyRegistryService], [CurrencyController]],
@@ -100,6 +106,7 @@ describe('feature modules', () => {
     ['ConversionsModule', ConversionsModule, [ConversionsService], [ConversionsController]],
     ['SettlementsModule', SettlementsModule, [SettlementsService], [SettlementsController]],
     ['EntriesModule', EntriesModule, [EntriesService], [EntriesController]],
+    ['MigrationsModule', MigrationsModule, [CutoverService], [MigrationsController]],
   ] as [string, unknown, unknown[], unknown[]][])(
     '%s declares its providers and controllers',
     (_name, module, providers, controllers) => {

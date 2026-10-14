@@ -1,6 +1,10 @@
 import { Types } from "mongoose";
 
-export const USER_ACCOUNT_TYPES = ['available', 'held-inflow', 'held-outflow', 'refund-chargeback', 'lien'] as const;
+export const USER_ACCOUNT_TYPES = [
+  'available', 'held-inflow', 'held-outflow', 'refund-chargeback', 'lien',
+  'legacy-pending',
+  'reserve-overdraft',
+] as const;
 export type UserAccountTpe = (typeof USER_ACCOUNT_TYPES)[number];
 
 export const WALLET_TYPES = ['collection', 'payout'] as const;
@@ -30,7 +34,8 @@ export const System = {
   payout: 'external:payout',
   openingBalance: 'external:opening-balance',
   fx: (currency: string) => `fx:${currency}`,
-  refunds: 'external:refunds'
+  refunds: 'external:refunds',
+  legacy: 'external:legacy'
 } as const;
 
 /** A reference to an account */

@@ -36,7 +36,11 @@ describe('CollectionsService', () => {
   const build = (options: LedgerHarnessOptions = {}) => {
     ledger = new LedgerHarness(options);
     currencies = mockCurrencyRegistry({ known: [CURRENCY] });
-    service = new CollectionsService(ledger.service, currencies.asService);
+    // No owner here has been cut over: every collection runs natively.
+    service = new CollectionsService(ledger.service, currencies.asService, {
+      legacyRecords: jest.fn(async () => new Map()),
+      operation: jest.fn(),
+    } as never);
     return service;
   };
 
