@@ -18,6 +18,7 @@ import { RefundsModule } from './refunds/refunds.module';
 import { TopupsModule } from './topups/topups.module';
 import { LiensModule } from './liens/liens.module';
 import { DisputesModule } from './disputes/disputes.module';
+import { RollingReservesModule } from './rolling-reserves/rolling-reserves.module';
 import { ReconciliationModule } from './reconciliation/reconciliation.module';
 import { ReportsModule } from './reports/reports.module';
 import { MigrationsModule } from './migrations/migrations.module';
@@ -38,6 +39,7 @@ import { MigrationsModule } from './migrations/migrations.module';
     TopupsModule,
     LiensModule,
     DisputesModule,
+    RollingReservesModule,
     ReconciliationModule,
     ReportsModule,
     MigrationsModule

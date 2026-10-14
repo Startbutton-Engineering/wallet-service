@@ -40,6 +40,7 @@ export enum ErrorCode {
   LIEN_ALREADY_PLACED = 'LIEN_ALREADY_PLACED',
   LIEN_ALREADY_RELEASED = 'LIEN_ALREADY_RELEASED',
   DISPUTE_ALREADY_ACCEPTED = 'DISPUTE_ALREADY_ACCEPTED',
+  ROLLING_RESERVE_ALREADY_RELEASED = 'ROLLING_RESERVE_ALREADY_RELEASED',
   ALREADY_CUT_OVER = 'ALREADY_CUT_OVER',
   NOT_CUT_OVER = 'NOT_CUT_OVER',
   REFERENCE_ON_LEDGER = 'REFERENCE_ON_LEDGER',
@@ -299,6 +300,16 @@ export class AppError extends Error {
       `Dispute ${disputeId} has already been accepted.`,
       false,
       { disputeId }
+    )
+  }
+
+  static rollingReserveAlreadyReleased(releaseId: string): AppError {
+    return new AppError(
+      ErrorCode.ROLLING_RESERVE_ALREADY_RELEASED,
+      HttpStatus.CONFLICT,
+      `Rolling reserve release ${releaseId} has already been applied.`,
+      false,
+      { releaseId }
     )
   }
 

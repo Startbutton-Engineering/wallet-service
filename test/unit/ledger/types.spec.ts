@@ -49,6 +49,7 @@ describe('OutboxEventType', () => {
       'LienPlaced',
       'LienReleased',
       'DisputeAccepted',
+      'RollingReserveReleased',
       'LedgerCutover',
       'LegacyEffectApplied',
     ]);

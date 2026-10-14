@@ -38,6 +38,9 @@ import { LiensController } from '../../../src/liens/liens.controller';
 import { DisputesModule } from '../../../src/disputes/disputes.module';
 import { DisputesService } from '../../../src/disputes/disputes.service';
 import { DisputesController } from '../../../src/disputes/disputes.controller';
+import { RollingReservesModule } from '../../../src/rolling-reserves/rolling-reserves.module';
+import { RollingReservesService } from '../../../src/rolling-reserves/rolling-reserves.service';
+import { RollingReservesController } from '../../../src/rolling-reserves/rolling-reserves.controller';
 import { EntriesService } from '../../../src/entries/entries.service';
 import { EntriesController } from '../../../src/entries/entries.controller';
 import { StatementService } from '../../../src/wallets/statement.service';
@@ -73,6 +76,7 @@ describe('AppModule', () => {
       TopupsModule,
       LiensModule,
       DisputesModule,
+      RollingReservesModule,
       ReconciliationModule,
       ReportsModule,
       MigrationsModule,
@@ -108,6 +112,7 @@ describe('feature modules', () => {
     ['TopupsModule', TopupsModule, [TopupsService], [TopupsController]],
     ['LiensModule', LiensModule, [LiensService], [LiensController]],
     ['DisputesModule', DisputesModule, [DisputesService], [DisputesController]],
+    ['RollingReservesModule', RollingReservesModule, [RollingReservesService], [RollingReservesController]],
     ['ConversionsModule', ConversionsModule, [ConversionsService], [ConversionsController]],
     ['SettlementsModule', SettlementsModule, [SettlementsService], [SettlementsController]],
     ['EntriesModule', EntriesModule, [EntriesService], [EntriesController]],
