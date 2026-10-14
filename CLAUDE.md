@@ -53,13 +53,14 @@ The sign convention is **balance = credits − debits**. Each entry nets to zero
 
 ### Accounts (`src/accounts/account.ts`)
 - **User accounts** are keyed by `(tenantId, ownerId, currency, walletType ∈ {collection, payout}, accountType ∈ {available, held-inflow, held-outflow, refund-chargeback})`. A "wallet" is the set of these sub-accounts, and they are provisioned lazily. User accounts keep a gap-free `sequence`, and each user posting stores `balanceAfter`.
-- **System accounts** (`System.*`: `external:collection`, `external:payout`, `external:refunds`, `external:opening-balance`, `fx:<CUR>`) have no sequence and no OCC.
+- **System accounts** (`System.*`: `external:collection`, `external:payout`, `external:refunds`, `external:opening-balance`, `external:legacy`, `fx:<CUR>`) have no sequence and no OCC.
 - Build references with the `accountRef.*` helpers. `refKey()` is the in-memory map key only and is never persisted.
 
 ### Lifecycle flows are ledger-derived state machines
 Payouts, conversions, settlements, refunds and refund fees have **no status document**. Each module has a `*-transitions.ts` file that maps each status to `{ operationType, eventType, plan(ctx, params) }`. A `plan` works out the current state by summing earlier postings filed under the flow's `reference`, using `ctx.referenceNetAmount(reference, accountRef, operationTypes?)` and `ctx.referenceEntryIds`. It then checks the preconditions (already initiated, already resolved, amount mismatch, and so on) and returns the entries to post. The `*.service.ts` file plugs the plan into `ledgerService.post()`.
 - `src/payouts/payout-transitions.ts` is the reference implementation. The usual shape is: initiate moves `available → held-outflow`, success moves `held → external`, failed or reversed returns the money to `available`, and reverse-failed takes it back again.
 - The `operationType` strings (e.g. `payout.initiate`, `refund.fee.reverse`) are part of posted history: the state machines read past postings through them. **Do not rename them without a data migration.**
+- Disputes (`src/disputes/`) have a single step: `POST /disputes/accept` (`dispute.accept`) debits the collection wallet's `available`, books any shortfall as `refund-chargeback` debt when `allowOverdraft` is set (the same `debitWithOverdraft` refunds use), and credits `external:collection`, reversing the disputed collection. Rolling-reserve cover stays in back-end, which sends only the remainder.
 - Unit tests for transitions run against an in-memory `FakeLedger` that implements `PrePostContext` (see `test/unit/payouts/payout-transitions.spec.ts`). Shared mocks are in `test/mocks/`.
 
 ### Reconciliation (`src/reconciliation/`) and reports (`src/reports/`)

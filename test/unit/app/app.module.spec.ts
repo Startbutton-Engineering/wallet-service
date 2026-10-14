@@ -35,6 +35,9 @@ import { LegacyWalletsService } from '../../../src/ledger/legacy-wallets.service
 import { LegacyRouteService } from '../../../src/ledger/legacy-route.service';
 import { LiensService } from '../../../src/liens/liens.service';
 import { LiensController } from '../../../src/liens/liens.controller';
+import { DisputesModule } from '../../../src/disputes/disputes.module';
+import { DisputesService } from '../../../src/disputes/disputes.service';
+import { DisputesController } from '../../../src/disputes/disputes.controller';
 import { EntriesService } from '../../../src/entries/entries.service';
 import { EntriesController } from '../../../src/entries/entries.controller';
 import { StatementService } from '../../../src/wallets/statement.service';
@@ -69,6 +72,7 @@ describe('AppModule', () => {
       RefundsModule,
       TopupsModule,
       LiensModule,
+      DisputesModule,
       ReconciliationModule,
       ReportsModule,
       MigrationsModule,
@@ -103,6 +107,7 @@ describe('feature modules', () => {
     ['RefundsModule', RefundsModule, [RefundsService], [RefundsController]],
     ['TopupsModule', TopupsModule, [TopupsService], [TopupsController]],
     ['LiensModule', LiensModule, [LiensService], [LiensController]],
+    ['DisputesModule', DisputesModule, [DisputesService], [DisputesController]],
     ['ConversionsModule', ConversionsModule, [ConversionsService], [ConversionsController]],
     ['SettlementsModule', SettlementsModule, [SettlementsService], [SettlementsController]],
     ['EntriesModule', EntriesModule, [EntriesService], [EntriesController]],

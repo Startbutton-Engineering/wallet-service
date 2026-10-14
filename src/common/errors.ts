@@ -39,6 +39,7 @@ export enum ErrorCode {
   TOPUP_ALREADY_CREDITED = 'TOPUP_ALREADY_CREDITED',
   LIEN_ALREADY_PLACED = 'LIEN_ALREADY_PLACED',
   LIEN_ALREADY_RELEASED = 'LIEN_ALREADY_RELEASED',
+  DISPUTE_ALREADY_ACCEPTED = 'DISPUTE_ALREADY_ACCEPTED',
   ALREADY_CUT_OVER = 'ALREADY_CUT_OVER',
   NOT_CUT_OVER = 'NOT_CUT_OVER',
   REFERENCE_ON_LEDGER = 'REFERENCE_ON_LEDGER',
@@ -288,6 +289,16 @@ export class AppError extends Error {
       `Lien ${lienId} has already been released.`,
       false,
       { lienId }
+    )
+  }
+
+  static disputeAlreadyAccepted(disputeId: string): AppError {
+    return new AppError(
+      ErrorCode.DISPUTE_ALREADY_ACCEPTED,
+      HttpStatus.CONFLICT,
+      `Dispute ${disputeId} has already been accepted.`,
+      false,
+      { disputeId }
     )
   }
 

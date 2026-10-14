@@ -117,6 +117,7 @@ export enum OutboxEventType {
   TOPUP_CREDITED = 'TopupCredited',
   LIEN_PLACED = 'LienPlaced',
   LIEN_RELEASED = 'LienReleased',
+  DISPUTE_ACCEPTED = 'DisputeAccepted',
   LEDGER_CUTOVER = 'LedgerCutover',
   LEGACY_EFFECT_APPLIED = 'LegacyEffectApplied'
 }
