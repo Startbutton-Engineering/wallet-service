@@ -36,6 +36,7 @@ export enum ErrorCode {
   REFUND_FEE_ALREADY_RESOLVED = 'REFUND_FEE_ALREADY_RESOLVED',
   REFUND_FEE_NOT_REVERSED = 'REFUND_FEE_NOT_REVERSED',
   REFUND_FEE_AMOUNT_MISMATCH = 'REFUND_FEE_AMOUNT_MISMATCH',
+  TOPUP_ALREADY_CREDITED = 'TOPUP_ALREADY_CREDITED',
   // System
   INTERNAL_ERROR = 'INTERNAL_ERROR',
   SERVICE_UNAVAILABLE = 'SERVICE_UNAVAILABLE',
@@ -261,6 +262,16 @@ export class AppError extends Error {
       'This settlement has already succeeded or failed; its funds are no longer held.',
       false,
       details
+    )
+  }
+
+  static topupAlreadyCredited(topupId: string): AppError {
+    return new AppError(
+      ErrorCode.TOPUP_ALREADY_CREDITED,
+      HttpStatus.CONFLICT,
+      `Topup ${topupId} has already been credited.`,
+      false,
+      { topupId }
     )
   }
 

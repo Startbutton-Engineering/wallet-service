@@ -15,6 +15,7 @@ import { ConversionsModule } from './conversions/conversions.module';
 import { SettlementsModule } from './settlements/settlements.module';
 import { EntriesModule } from './entries/entries.module';
 import { RefundsModule } from './refunds/refunds.module';
+import { TopupsModule } from './topups/topups.module';
 
 @Module({
   imports: [
@@ -28,7 +29,8 @@ import { RefundsModule } from './refunds/refunds.module';
     ConversionsModule,
     SettlementsModule,
     EntriesModule,
-    RefundsModule
+    RefundsModule,
+    TopupsModule
   ],
   controllers: [HealthController],
   providers: [
