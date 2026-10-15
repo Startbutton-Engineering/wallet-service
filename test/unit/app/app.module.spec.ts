@@ -28,8 +28,19 @@ import { TopupsModule } from '../../../src/topups/topups.module';
 import { TopupsService } from '../../../src/topups/topups.service';
 import { TopupsController } from '../../../src/topups/topups.controller';
 import { LiensModule } from '../../../src/liens/liens.module';
+import { MigrationsModule } from '../../../src/migrations/migrations.module';
+import { CutoverService } from '../../../src/migrations/cutover.service';
+import { MigrationsController } from '../../../src/migrations/migrations.controller';
+import { LegacyWalletsService } from '../../../src/ledger/legacy-wallets.service';
+import { LegacyRouteService } from '../../../src/ledger/legacy-route.service';
 import { LiensService } from '../../../src/liens/liens.service';
 import { LiensController } from '../../../src/liens/liens.controller';
+import { DisputesModule } from '../../../src/disputes/disputes.module';
+import { DisputesService } from '../../../src/disputes/disputes.service';
+import { DisputesController } from '../../../src/disputes/disputes.controller';
+import { RollingReservesModule } from '../../../src/rolling-reserves/rolling-reserves.module';
+import { RollingReservesService } from '../../../src/rolling-reserves/rolling-reserves.service';
+import { RollingReservesController } from '../../../src/rolling-reserves/rolling-reserves.controller';
 import { EntriesService } from '../../../src/entries/entries.service';
 import { EntriesController } from '../../../src/entries/entries.controller';
 import { StatementService } from '../../../src/wallets/statement.service';
@@ -64,8 +75,11 @@ describe('AppModule', () => {
       RefundsModule,
       TopupsModule,
       LiensModule,
+      DisputesModule,
+      RollingReservesModule,
       ReconciliationModule,
       ReportsModule,
+      MigrationsModule,
     ]);
   });
 
@@ -87,7 +101,7 @@ describe('feature modules', () => {
     [
       'LedgerModule',
       LedgerModule,
-      [LedgerService, IdempotencyRepository, OutboxRepository, EntriesRepository, PostingsRepository],
+      [LedgerService, IdempotencyRepository, OutboxRepository, EntriesRepository, PostingsRepository, LegacyWalletsService, LegacyRouteService],
       [],
     ],
     ['CurrencyModule', CurrencyModule, [CurrencyRegistryService], [CurrencyController]],
@@ -97,9 +111,12 @@ describe('feature modules', () => {
     ['RefundsModule', RefundsModule, [RefundsService], [RefundsController]],
     ['TopupsModule', TopupsModule, [TopupsService], [TopupsController]],
     ['LiensModule', LiensModule, [LiensService], [LiensController]],
+    ['DisputesModule', DisputesModule, [DisputesService], [DisputesController]],
+    ['RollingReservesModule', RollingReservesModule, [RollingReservesService], [RollingReservesController]],
     ['ConversionsModule', ConversionsModule, [ConversionsService], [ConversionsController]],
     ['SettlementsModule', SettlementsModule, [SettlementsService], [SettlementsController]],
     ['EntriesModule', EntriesModule, [EntriesService], [EntriesController]],
+    ['MigrationsModule', MigrationsModule, [CutoverService], [MigrationsController]],
   ] as [string, unknown, unknown[], unknown[]][])(
     '%s declares its providers and controllers',
     (_name, module, providers, controllers) => {

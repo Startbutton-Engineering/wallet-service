@@ -6,6 +6,7 @@ describe('loadConfig', () => {
     expect(loadConfig({} as NodeJS.ProcessEnv)).toEqual({
       mongoUri: 'mongodb://localhost:27017',
       dbName: 'ledger',
+      legacyDbName: '',
       defaultTenantId: '',
       apiKeys: [],
       occMaxRetries: 3,
@@ -21,6 +22,7 @@ describe('loadConfig', () => {
       loadConfig({
         MONGO_PATH: 'mongodb://mongo:27017',
         DB_NAME: 'wallets',
+        LEGACY_DB_NAME: 'startbutton',
         DEFAULT_TENANT_ID: 'acme',
         API_KEYS: 'a,b,c',
         OCC_MAX_RETRIES: '9',
@@ -36,6 +38,7 @@ describe('loadConfig', () => {
     ).toEqual({
       mongoUri: 'mongodb://mongo:27017',
       dbName: 'wallets',
+      legacyDbName: 'startbutton',
       defaultTenantId: 'acme',
       apiKeys: ['a', 'b', 'c'],
       occMaxRetries: 9,

@@ -48,6 +48,10 @@ describe('OutboxEventType', () => {
       'TopupCredited',
       'LienPlaced',
       'LienReleased',
+      'DisputeAccepted',
+      'RollingReserveReleased',
+      'LedgerCutover',
+      'LegacyEffectApplied',
     ]);
   });
 });

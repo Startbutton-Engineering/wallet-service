@@ -1,4 +1,4 @@
-import { AccountRef, accountRef, refKey, WalletType } from '../../src/accounts/account';
+import { AccountRef, accountRef, refKey, UserAccountTpe, WalletType } from '../../src/accounts/account';
 import { PrePostContext } from '../../src/ledger/ledger.service';
 import { Direction, EntryI, signedDelta } from '../../src/ledger/types';
 import { walletBalance } from './fixtures';
@@ -19,7 +19,7 @@ export class BalanceLedger {
   readonly ctx = {
     session: undefined as never,
     readBalance: async (ownerId: string, currency: string, walletType: WalletType) => {
-      const of = (type: 'available' | 'held-inflow' | 'held-outflow' | 'refund-chargeback' | 'lien') =>
+      const of = (type: UserAccountTpe) =>
         this.balanceOf(accountRef.user(ownerId, currency, walletType, type));
       return walletBalance({
         ownerId,
@@ -30,6 +30,8 @@ export class BalanceLedger {
         heldOutflow: of('held-outflow'),
         refundChargeback: of('refund-chargeback'),
         lien: of('lien'),
+        legacyPending: of('legacy-pending'),
+        reserveOverdraft: of('reserve-overdraft'),
       });
     },
     referenceNetAmount: async (reference: string, account: AccountRef, operationTypes?: string[]) => {

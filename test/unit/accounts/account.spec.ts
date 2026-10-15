@@ -135,13 +135,15 @@ describe('accountRef', () => {
 });
 
 describe('type constants', () => {
-  it('lists the five user sub-accounts and the two wallet types', () => {
+  it('lists the seven user sub-accounts and the two wallet types', () => {
     expect(USER_ACCOUNT_TYPES).toEqual([
       'available',
       'held-inflow',
       'held-outflow',
       'refund-chargeback',
       'lien',
+      'legacy-pending',
+      'reserve-overdraft',
     ]);
     expect(WALLET_TYPES).toEqual(['collection', 'payout']);
   });

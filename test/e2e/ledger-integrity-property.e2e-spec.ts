@@ -45,6 +45,7 @@ const ACTIONS = [
   'settlement:initiate', 'settlement:success', 'settlement:fail',
   'refund:pending', 'refund:success', 'refund:failed',
   'refund-fee:initiated', 'refund-fee:success', 'refund-fee:reversed', 'refund-fee:reverse-failed',
+  'dispute:accept', 'reserve:release',
 ] as const;
 type Action = (typeof ACTIONS)[number];
 
@@ -65,6 +66,8 @@ const tail: fc.Arbitrary<Action[]> = fc.oneof(
   either<Action>('refund-fee:success', 'refund-fee:reversed').map((o): Action[] => [
     'refund:pending', 'refund-fee:initiated', o, 'refund:success',
   ]),
+  fc.constant<Action[]>(['dispute:accept']),
+  fc.constant<Action[]>(['reserve:release']),
   // Anything at all, in any order: exercises the rejection paths too.
   fc.array(fc.constantFrom<Action>(...ACTIONS), { minLength: 1, maxLength: 3 }),
 );
@@ -117,6 +120,10 @@ function toOp(s: Slot, action: Action, allowOverdraft: boolean): Op {
         : { path: `/settlements/${status}`, body: { settlementId: ref, ownerId, currency } };
     case 'refund':
       return { path: '/refunds/status', body: { refundId: ref, ownerId, currency, amount: half, status, allowOverdraft } };
+    case 'reserve':
+      return { path: '/rolling-reserves/release', body: { releaseId: ref, ownerId, currency, amount: half } };
+    case 'dispute':
+      return { path: '/disputes/accept', body: { disputeId: ref, ownerId, currency, amount: half, allowOverdraft } };
     default:
       return {
         path: '/refunds/fee/status',
