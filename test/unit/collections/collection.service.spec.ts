@@ -36,7 +36,11 @@ describe('CollectionsService', () => {
   const build = (options: LedgerHarnessOptions = {}) => {
     ledger = new LedgerHarness(options);
     currencies = mockCurrencyRegistry({ known: [CURRENCY] });
-    service = new CollectionsService(ledger.service, currencies.asService);
+    // No owner here has been cut over: every collection runs natively.
+    service = new CollectionsService(ledger.service, currencies.asService, {
+      legacyRecords: jest.fn(async () => new Map()),
+      operation: jest.fn(),
+    } as never);
     return service;
   };
 
@@ -162,12 +166,34 @@ describe('CollectionsService', () => {
 
       expect(ledger.events.map((e) => e.type)).toEqual([
         OutboxEventType.COLLECTION_SETTLED,
-        'ReffunChargebackSettled',
+        OutboxEventType.REFUND_CHARGEBACK_SETTLED,
       ]);
       expect(ledger.events[0].payload).toMatchObject({
         settledToDebit: '400',
         amountToCredit: '600',
       });
+    });
+
+    it('returns the debt paydown split on the response', async () => {
+      build({
+        netAmount: () => 1000n,
+        balance: () => walletBalance({ refundChargeback: -400n }),
+      });
+
+      await expect(service.settled(base)).resolves.toEqual({
+        operationId: ledger.operationId,
+        entryId: 'entry-1',
+        collectionId: 'col-1',
+        settledToDebit: '400',
+        amountToCredit: '600',
+        balance: expect.objectContaining({ walletType: 'collection' }),
+      });
+    });
+
+    it('returns a zero paydown when the owner carries no debt', async () => {
+      build({ netAmount: () => 1000n });
+
+      await expect(service.settled(base)).resolves.toMatchObject({ settledToDebit: '0', amountToCredit: '1000' });
     });
 
     it('emits only the settled event when there was no debt', async () => {
@@ -301,7 +327,7 @@ describe('CollectionsService', () => {
 
       expect(ledger.events.map((e) => e.type)).toEqual([
         OutboxEventType.COLLECTION_SETTLED,
-        'ReffunChargebackSettled',
+        OutboxEventType.REFUND_CHARGEBACK_SETTLED,
       ]);
     });
 

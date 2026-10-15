@@ -193,12 +193,60 @@ describe('WalletsService', () => {
       ]);
     });
 
-    it('checks the destination for this transfer id before posting anything', async () => {
+    describe('into the collection wallet', () => {
+      const intoCollection = { ...params, from: 'payout' as const, to: 'collection' as const };
+      const withDebt = (refundChargeback: bigint) =>
+        new LedgerHarness({
+          balance: (ownerId, currency, walletType) => walletBalance({ ownerId, currency, walletType, refundChargeback }),
+        });
+
+      it('repays refund-chargeback debt before crediting available', async () => {
+        build(undefined, withDebt(-400n));
+        await service.transfer(intoCollection);
+
+        expect(ledger.readBalance).toHaveBeenCalledWith(OWNER, CURRENCY, 'collection');
+        expect(ledger.lastOperation.entries[0].postings.map((p) => [accountKeyOf(p.account), p.direction, p.amount])).toEqual([
+          [refKey(accountRef.user(OWNER, CURRENCY, 'payout', 'available')), 'debit', 1000n],
+          [refKey(accountRef.user(OWNER, CURRENCY, 'collection', 'refund-chargeback')), 'credit', 400n],
+          [refKey(accountRef.user(OWNER, CURRENCY, 'collection', 'available')), 'credit', 600n],
+        ]);
+      });
+
+      it('adds a debt-settled event carrying the split', async () => {
+        build(undefined, withDebt(-400n));
+        await service.transfer(intoCollection);
+
+        expect(ledger.events.map((e) => e.type)).toEqual([
+          OutboxEventType.WALLET_TRANSFERRED,
+          OutboxEventType.REFUND_CHARGEBACK_SETTLED,
+        ]);
+        expect(ledger.events[1].payload).toMatchObject({ settledToDebit: '400', amountToCredit: '600' });
+      });
+
+      it('credits available in full when there is no debt', async () => {
+        build(undefined, withDebt(0n));
+        await service.transfer(intoCollection);
+
+        expect(ledger.lastOperation.entries[0].postings.map((p) => [accountKeyOf(p.account), p.direction, p.amount])).toEqual([
+          [refKey(accountRef.user(OWNER, CURRENCY, 'payout', 'available')), 'debit', 1000n],
+          [refKey(accountRef.user(OWNER, CURRENCY, 'collection', 'available')), 'credit', 1000n],
+        ]);
+        expect(ledger.events.map((e) => e.type)).toEqual([OutboxEventType.WALLET_TRANSFERRED]);
+      });
+    });
+
+    it('never reads the debt when the destination is the payout wallet', async () => {
+      await service.transfer(params);
+      expect(ledger.readBalance).not.toHaveBeenCalled();
+      expect(ledger.events[0].payload).toMatchObject({ settledToDebit: '0', amountToCredit: '1000' });
+    });
+
+    it('checks the source for this transfer id before posting anything', async () => {
       await service.transfer(params);
 
       expect(ledger.referenceNetAmount).toHaveBeenCalledWith(
         'tr-1',
-        expect.objectContaining({ walletType: 'payout', accountType: 'available' }),
+        expect.objectContaining({ walletType: 'collection', accountType: 'available' }),
         [WALLET_TRANSFER_OPERATION],
       );
     });

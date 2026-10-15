@@ -126,16 +126,24 @@ describe('accountRef', () => {
       name: System.payout,
       currency: 'NGN',
     });
+    expect(accountRef.systemRefunds('NGN')).toEqual({
+      kind: 'system',
+      name: 'external:refunds',
+      currency: 'NGN',
+    });
   });
 });
 
 describe('type constants', () => {
-  it('lists the four user sub-accounts and the two wallet types', () => {
+  it('lists the seven user sub-accounts and the two wallet types', () => {
     expect(USER_ACCOUNT_TYPES).toEqual([
       'available',
       'held-inflow',
       'held-outflow',
       'refund-chargeback',
+      'lien',
+      'legacy-pending',
+      'reserve-overdraft',
     ]);
     expect(WALLET_TYPES).toEqual(['collection', 'payout']);
   });

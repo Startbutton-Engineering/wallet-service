@@ -34,6 +34,7 @@ interface FakePosting {
  * exercised by summing what earlier transitions wrote, as the real ledger does. */
 class FakeLedger {
   private postings: FakePosting[] = [];
+  private entries: { id: string; reference: string; operationType: string }[] = [];
 
   readonly ctx = {
     session: undefined as never,
@@ -45,11 +46,15 @@ class FakeLedger {
         .filter((p) => !operationTypes || operationTypes.includes(p.operationType))
         .reduce((sum, p) => sum + signedDelta(p.direction, p.amount), 0n);
     },
-    referenceEntryIds: () => { throw new Error('not used by settlement transitions') },
+    referenceEntryIds: async (reference: string, operationType: string) =>
+      this.entries
+        .filter((e) => e.reference === reference && e.operationType === operationType)
+        .map((e) => e.id),
   } satisfies PrePostContext;
 
   private record(reference: string, operationType: string, entries: EntryI[]): void {
     for (const entry of entries) {
+      this.entries.push({ id: `entry-${this.entries.length + 1}`, reference, operationType });
       for (const posting of entry.postings) {
         this.postings.push({
           reference,
@@ -76,15 +81,17 @@ class FakeLedger {
   }
 }
 
-async function codeOf(run: Promise<unknown>): Promise<ErrorCode> {
+async function errorOf(run: Promise<unknown>): Promise<AppError> {
   try {
     await run;
   } catch (err) {
     expect(err).toBeInstanceOf(AppError);
-    return (err as AppError).code;
+    return err as AppError;
   }
   throw new Error('expected the transition to be rejected');
 }
+
+const codeOf = async (run: Promise<unknown>): Promise<ErrorCode> => (await errorOf(run)).code;
 
 const shape = (entries: EntryI[]) =>
   entries.flatMap((e) => e.postings.map((p) => [refKey(p.account), p.direction, p.amount]));
@@ -164,10 +171,12 @@ describe('settlement transitions', () => {
       ['success', 'failed'],
       ['failed', 'success'],
       ['failed', 'failed'],
-    ] as const)('rejects %s followed by %s', async (first, second) => {
+    ] as const)('rejects %s followed by %s, naming the first resolution', async (first, second) => {
       await ledger.applyInitiate();
       await ledger.apply(first);
-      expect(await codeOf(ledger.apply(second))).toBe(ErrorCode.SETTLEMENT_ALREADY_RESOLVED);
+      const error = await errorOf(ledger.apply(second));
+      expect(error.code).toBe(ErrorCode.SETTLEMENT_ALREADY_RESOLVED);
+      expect(error.details).toEqual({ settlementId: 'st-1', initiated: '10500', resolution: first });
     });
 
     it('a resolve for a different wallet type finds nothing held', async () => {

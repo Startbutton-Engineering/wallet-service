@@ -11,6 +11,8 @@ describe('REFERENCE_OPERATION_TYPES', () => {
       settlementId: ['settlement.initiate', 'settlement.success', 'settlement.failed'],
       conversionId: ['conversion.initiate', 'conversion.approve', 'conversion.reject'],
       IntraTransferId: ['wallet.intra-transfer'],
+      refundId: ['refund.pending', 'refund.success', 'refund.failed'],
+      refundTransferReference: ['refund.fee.initiate', 'refund.fee.success', 'refund.fee.reverse', 'refund.fee.reverse-failed'],
     });
   });
 });
@@ -23,6 +25,8 @@ describe('entryLookupSchema', () => {
     ['settlementId', 'st-1'],
     ['conversionId', 'cv-1'],
     ['IntraTransferId', 'tr-1'],
+    ['refundId', 'rf-1'],
+    ['refundTransferReference', 'trf_rf-1'],
   ])('accepts %s alone', (by, value) => {
     expect(entryLookupSchema.parse({ [by]: value })).toEqual({ by, value });
   });

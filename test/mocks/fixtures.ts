@@ -22,11 +22,14 @@ export function walletBalance(overrides: Partial<WalletBalance> = {}): WalletBal
     heldOutflow: 0n,
     ledger: 0n,
     refundChargeback: 0n,
+    lien: 0n,
+    legacyPending: 0n,
+    reserveOverdraft: 0n,
     ...overrides,
   };
   return {
     ...base,
-    ledger: overrides.ledger ?? base.available + base.heldInflow + base.heldOutflow,
+    ledger: overrides.ledger ?? base.available + base.heldInflow + base.heldOutflow + base.refundChargeback + base.lien + base.legacyPending,
   };
 }
 

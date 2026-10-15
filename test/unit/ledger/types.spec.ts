@@ -37,6 +37,21 @@ describe('OutboxEventType', () => {
       'SettlementInitiated',
       'SettlementSucceeded',
       'SettlementFailed',
+      'RefundPending',
+      'RefundSucceeded',
+      'RefundFailed',
+      'RefundFeeInitiated',
+      'RefundFeeSucceeded',
+      'RefundFeeReversed',
+      'RefundFeeReverseFailed',
+      'RefundChargebackSettled',
+      'TopupCredited',
+      'LienPlaced',
+      'LienReleased',
+      'DisputeAccepted',
+      'RollingReserveReleased',
+      'LedgerCutover',
+      'LegacyEffectApplied',
     ]);
   });
 });

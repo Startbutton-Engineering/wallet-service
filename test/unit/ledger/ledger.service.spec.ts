@@ -6,6 +6,8 @@ import {
   PrePostContext,
 } from '../../../src/ledger/ledger.service';
 import { IdempotencyRepository } from '../../../src/ledger/idempotency.repository';
+import { LegacyWalletsService } from '../../../src/ledger/legacy-wallets.service';
+import { LegacyRouteService } from '../../../src/ledger/legacy-route.service';
 import { OutboxRepository } from '../../../src/ledger/outbox.repository';
 import {
   AccountDoc,
@@ -49,6 +51,8 @@ class LedgerTestBed {
     insert: jest.fn(async () => undefined),
   };
   readonly outbox = { write: jest.fn(async () => undefined) };
+  readonly legacyWallets = { updateFromLedger: jest.fn(async () => undefined) };
+  readonly legacyRoute = { plan: jest.fn(async () => null) };
   readonly service: LedgerService;
 
   private readonly store = new Map<string, AccountDoc>();
@@ -72,6 +76,8 @@ class LedgerTestBed {
       this.idempotency as unknown as IdempotencyRepository,
       this.accountsRepo.asRepository,
       this.outbox as unknown as OutboxRepository,
+      this.legacyWallets as unknown as LegacyWalletsService,
+      this.legacyRoute as unknown as LegacyRouteService,
     );
   }
 

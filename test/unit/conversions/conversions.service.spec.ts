@@ -9,6 +9,7 @@ import {
   LedgerHarness,
   LedgerHarnessOptions,
   mockCurrencyRegistry,
+  walletBalance,
 } from '../../mocks';
 
 const base = {
@@ -19,7 +20,7 @@ const base = {
   fromCurrency: 'NGN',
   toCurrency: 'USD',
   fromAmount: 150_000n,
-  rate: '1500',
+  rate: '0.000666667',
   walletType: 'collection' as const,
 };
 
@@ -62,7 +63,7 @@ describe('ConversionsService', () => {
           fromCurrency: 'NGN',
           toCurrency: 'USD',
           fromAmount: '150000',
-          rate: '1500',
+          rate: '0.000666667',
           walletType: 'collection',
         },
       });
@@ -84,7 +85,7 @@ describe('ConversionsService', () => {
         status: 'initiated',
         fromCurrency: 'NGN',
         toCurrency: 'USD',
-        rate: '1500',
+        rate: '0.000666667',
         fromAmount: '150000',
         toAmount: '100',
         walletType: 'collection',
@@ -106,7 +107,7 @@ describe('ConversionsService', () => {
             ownerId: OWNER,
             fromCurrency: 'NGN',
             toCurrency: 'USD',
-            rate: '1500',
+            rate: '0.000666667',
             fromAmount: '150000',
             toAmount: '100',
             walletType: 'collection',
@@ -123,7 +124,7 @@ describe('ConversionsService', () => {
 
     it('generalizes to any registered currency pair', async () => {
       build({}, [], ['USD', 'GBP']);
-      await service.initiate({ ...base, fromCurrency: 'USD', toCurrency: 'GBP', rate: '1.25' });
+      await service.initiate({ ...base, fromCurrency: 'USD', toCurrency: 'GBP', rate: '0.8' });
 
       expect(ledger.lastCall.requestPayload).toMatchObject({ fromCurrency: 'USD', toCurrency: 'GBP' });
       expect(currencies.require).toHaveBeenCalledWith('USD');
@@ -189,6 +190,36 @@ describe('ConversionsService', () => {
       expect(ledger.accountBalance).toHaveBeenCalledWith(OWNER, 'USD', 'collection');
     });
 
+    it('adds a debt-settled event when an approval repays refund-chargeback debt', async () => {
+      build({
+        netAmount: () => 150_000n,
+        balance: (ownerId, currency, walletType) => walletBalance({ ownerId, currency, walletType, refundChargeback: -40_000n }),
+      });
+
+      await service.resolve({
+        tenantId: TENANT, idempotencyKey: 'key-2', conversionId: 'cv-1', ownerId: OWNER,
+        fromCurrency: 'NGN', toCurrency: 'USD', status: 'approved', walletType: 'collection',
+      });
+
+      expect(ledger.events.map((e) => e.type)).toEqual([
+        OutboxEventType.CONVERSION_APPROVED,
+        OutboxEventType.REFUND_CHARGEBACK_SETTLED,
+      ]);
+      expect(ledger.events[0].payload).toMatchObject({ settledToDebit: '40000' });
+    });
+
+    it('emits no debt-settled event and no settledToDebit when nothing was repaid', async () => {
+      build({ netAmount: () => 150_000n });
+
+      await service.resolve({
+        tenantId: TENANT, idempotencyKey: 'key-2', conversionId: 'cv-1', ownerId: OWNER,
+        fromCurrency: 'NGN', toCurrency: 'USD', status: 'rejected', walletType: 'collection',
+      });
+
+      expect(ledger.events).toHaveLength(1);
+      expect(ledger.events[0].payload).not.toHaveProperty('settledToDebit');
+    });
+
     it('reads the payout wallet for both currencies when walletType is payout', async () => {
       build({ netAmount: () => 150_000n });
 
@@ -210,7 +241,7 @@ describe('ConversionsService', () => {
           reference: 'cv-1',
           metadata: {
             ownerId: OWNER, fromCurrency: 'NGN', toCurrency: 'USD',
-            rate: '1500', fromAmount: '150000', toAmount: '100', walletType: 'payout',
+            rate: '0.000666667', fromAmount: '150000', toAmount: '100', walletType: 'payout',
           },
           createdAt: initiatedAt,
         },
@@ -219,7 +250,7 @@ describe('ConversionsService', () => {
       await expect(service.listPending(TENANT)).resolves.toEqual([
         {
           conversionId: 'cv-1', ownerId: OWNER, fromCurrency: 'NGN', toCurrency: 'USD',
-          rate: '1500', fromAmount: '150000', toAmount: '100', walletType: 'payout', initiatedAt,
+          rate: '0.000666667', fromAmount: '150000', toAmount: '100', walletType: 'payout', initiatedAt,
         },
       ]);
     });
@@ -231,7 +262,7 @@ describe('ConversionsService', () => {
           reference: 'cv-1',
           metadata: {
             ownerId: OWNER, fromCurrency: 'NGN', toCurrency: 'USD',
-            rate: '1500', fromAmount: '150000', toAmount: '100',
+            rate: '0.000666667', fromAmount: '150000', toAmount: '100',
           },
           createdAt: initiatedAt,
         },
@@ -240,7 +271,7 @@ describe('ConversionsService', () => {
       await expect(service.listPending(TENANT)).resolves.toEqual([
         {
           conversionId: 'cv-1', ownerId: OWNER, fromCurrency: 'NGN', toCurrency: 'USD',
-          rate: '1500', fromAmount: '150000', toAmount: '100', walletType: 'collection', initiatedAt,
+          rate: '0.000666667', fromAmount: '150000', toAmount: '100', walletType: 'collection', initiatedAt,
         },
       ]);
     });

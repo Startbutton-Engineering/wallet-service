@@ -27,6 +27,24 @@ export enum ErrorCode {
   SETTLEMENT_ALREADY_INITIATED = 'SETTLEMENT_ALREADY_INITIATED',
   SETTLEMENT_NOT_INITIATED = 'SETTLEMENT_NOT_INITIATED',
   SETTLEMENT_ALREADY_RESOLVED = 'SETTLEMENT_ALREADY_RESOLVED',
+  REFUND_ALREADY_INITIATED = 'REFUND_ALREADY_INITIATED',
+  REFUND_NOT_INITIATED = 'REFUND_NOT_INITIATED',
+  REFUND_ALREADY_RESOLVED = 'REFUND_ALREADY_RESOLVED',
+  REFUND_AMOUNT_MISMATCH = 'REFUND_AMOUNT_MISMATCH',
+  REFUND_FEE_ALREADY_INITIATED = 'REFUND_FEE_ALREADY_INITIATED',
+  REFUND_FEE_NOT_INITIATED = 'REFUND_FEE_NOT_INITIATED',
+  REFUND_FEE_ALREADY_RESOLVED = 'REFUND_FEE_ALREADY_RESOLVED',
+  REFUND_FEE_NOT_REVERSED = 'REFUND_FEE_NOT_REVERSED',
+  REFUND_FEE_AMOUNT_MISMATCH = 'REFUND_FEE_AMOUNT_MISMATCH',
+  TOPUP_ALREADY_CREDITED = 'TOPUP_ALREADY_CREDITED',
+  LIEN_ALREADY_PLACED = 'LIEN_ALREADY_PLACED',
+  LIEN_ALREADY_RELEASED = 'LIEN_ALREADY_RELEASED',
+  DISPUTE_ALREADY_ACCEPTED = 'DISPUTE_ALREADY_ACCEPTED',
+  ROLLING_RESERVE_ALREADY_RELEASED = 'ROLLING_RESERVE_ALREADY_RELEASED',
+  ALREADY_CUT_OVER = 'ALREADY_CUT_OVER',
+  NOT_CUT_OVER = 'NOT_CUT_OVER',
+  REFERENCE_ON_LEDGER = 'REFERENCE_ON_LEDGER',
+  LEGACY_WALLET_UPDATE_FAILED = 'LEGACY_WALLET_UPDATE_FAILED',
   // System
   INTERNAL_ERROR = 'INTERNAL_ERROR',
   SERVICE_UNAVAILABLE = 'SERVICE_UNAVAILABLE',
@@ -253,6 +271,169 @@ export class AppError extends Error {
       false,
       details
     )
+  }
+
+  static lienAlreadyPlaced(lienId: string): AppError {
+    return new AppError(
+      ErrorCode.LIEN_ALREADY_PLACED,
+      HttpStatus.CONFLICT,
+      `Lien ${lienId} has already been placed.`,
+      false,
+      { lienId }
+    )
+  }
+
+  static lienAlreadyReleased(lienId: string): AppError {
+    return new AppError(
+      ErrorCode.LIEN_ALREADY_RELEASED,
+      HttpStatus.CONFLICT,
+      `Lien ${lienId} has already been released.`,
+      false,
+      { lienId }
+    )
+  }
+
+  static disputeAlreadyAccepted(disputeId: string): AppError {
+    return new AppError(
+      ErrorCode.DISPUTE_ALREADY_ACCEPTED,
+      HttpStatus.CONFLICT,
+      `Dispute ${disputeId} has already been accepted.`,
+      false,
+      { disputeId }
+    )
+  }
+
+  static rollingReserveAlreadyReleased(releaseId: string): AppError {
+    return new AppError(
+      ErrorCode.ROLLING_RESERVE_ALREADY_RELEASED,
+      HttpStatus.CONFLICT,
+      `Rolling reserve release ${releaseId} has already been applied.`,
+      false,
+      { releaseId }
+    )
+  }
+
+  static topupAlreadyCredited(topupId: string): AppError {
+    return new AppError(
+      ErrorCode.TOPUP_ALREADY_CREDITED,
+      HttpStatus.CONFLICT,
+      `Topup ${topupId} has already been credited.`,
+      false,
+      { topupId }
+    )
+  }
+
+  static refundAlreadyInitiated(refundId: string): AppError {
+    return new AppError(
+      ErrorCode.REFUND_ALREADY_INITIATED,
+      HttpStatus.CONFLICT,
+      `Refund ${refundId} has already been initiated.`,
+      false,
+      { refundId }
+    )
+  }
+
+  static refundNotInitiated(refundId: string): AppError {
+    return new AppError(
+      ErrorCode.REFUND_NOT_INITIATED,
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      `Refund ${refundId} was never initiated.`,
+      false,
+      { refundId }
+    )
+  }
+
+  static refundAlreadyResolved(details: Record<string, unknown>): AppError {
+    return new AppError(
+      ErrorCode.REFUND_ALREADY_RESOLVED,
+      HttpStatus.CONFLICT,
+      'This refund has already succeeded or failed.',
+      false,
+      details
+    )
+  }
+
+  static refundAmountMismatch(details: Record<string, unknown>): AppError {
+    return new AppError(
+      ErrorCode.REFUND_AMOUNT_MISMATCH,
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      'Refund amount does not match the outstanding amount for this refund.',
+      false,
+      details
+    )
+  }
+
+  static refundFeeAlreadyInitiated(details: Record<string, unknown>): AppError {
+    return new AppError(
+      ErrorCode.REFUND_FEE_ALREADY_INITIATED,
+      HttpStatus.CONFLICT,
+      'The transfer fee for this refund has already been initiated.',
+      false,
+      details
+    )
+  }
+
+  static refundFeeNotInitiated(details: Record<string, unknown>): AppError {
+    return new AppError(
+      ErrorCode.REFUND_FEE_NOT_INITIATED,
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      'The transfer fee for this refund was never initiated.',
+      false,
+      details
+    )
+  }
+
+  static refundFeeAlreadyResolved(details: Record<string, unknown>): AppError {
+    return new AppError(
+      ErrorCode.REFUND_FEE_ALREADY_RESOLVED,
+      HttpStatus.CONFLICT,
+      'The transfer fee for this refund has already succeeded or been reversed; it is no longer held.',
+      false,
+      details
+    )
+  }
+
+  static refundFeeNotReversed(details: Record<string, unknown>): AppError {
+    return new AppError(
+      ErrorCode.REFUND_FEE_NOT_REVERSED,
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      'This transfer fee has no returned funds to re-debit; it must have been reversed first.',
+      false,
+      details
+    )
+  }
+
+  static refundFeeAmountMismatch(details: Record<string, unknown>): AppError {
+    return new AppError(
+      ErrorCode.REFUND_FEE_AMOUNT_MISMATCH,
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      'Fee amount does not match the outstanding transfer fee for this refund.',
+      false,
+      details
+    )
+  }
+
+  static alreadyCutOver(ownerId: string): AppError {
+    return new AppError(ErrorCode.ALREADY_CUT_OVER, HttpStatus.CONFLICT, `Owner ${ownerId} has already been cut over to the ledger.`, false, { ownerId })
+  }
+
+  static notCutOver(details: Record<string, unknown>): AppError {
+    return new AppError(ErrorCode.NOT_CUT_OVER, HttpStatus.CONFLICT, 'This wallet has not been cut over to the ledger.', false, details)
+  }
+
+  static referenceOnLedger(details: Record<string, unknown>): AppError {
+    return new AppError(
+      ErrorCode.REFERENCE_ON_LEDGER,
+      HttpStatus.CONFLICT,
+      'This reference already has ledger operations, so it is not a legacy transaction.',
+      false,
+      details
+    )
+  }
+
+  /** A cut-over owner's back-end `wallets` document could not be updated; the whole ledger post is rolled back. */
+  static legacyWalletUpdateFailed(message: string, details?: Record<string, unknown>): AppError {
+    return new AppError(ErrorCode.LEGACY_WALLET_UPDATE_FAILED, HttpStatus.INTERNAL_SERVER_ERROR, message, false, details)
   }
 
   static retryExhausted(): AppError {

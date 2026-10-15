@@ -1,6 +1,7 @@
 import { accountRef, AccountRef, System, WalletType } from "../accounts/account";
 import { AppError } from "../common/errors";
 import { convertMinorUnits } from "../common/exchange-rate";
+import { creditWithDebtPaydown } from "../collections/credit-policy";
 import { PrePostContext } from "../ledger/ledger.service";
 import { EntryI, OutboxEventType } from "../ledger/types";
 
@@ -36,6 +37,7 @@ export interface ResolveParams {
 export interface ConversionPlan {
   entries: EntryI[];
   guardNegative: AccountRef[];
+  settledToDebit?: bigint;
 }
 
 const heldInflow = (ownerId: string, currency: string, walletType: WalletType): AccountRef =>
@@ -138,6 +140,14 @@ export async function planInitiate(
 
 async function planApprove(ctx: PrePostContext, p: ResolveParams): Promise<ConversionPlan> {
   const { fromAmount, toAmount } = await requirePending(ctx, p.conversionId, p.ownerId, p.fromCurrency, p.toCurrency, p.walletType);
+  const { postings: credits, settled } = p.walletType === 'collection'
+    ? creditWithDebtPaydown({
+        ownerId: p.ownerId,
+        currency: p.toCurrency,
+        amount: toAmount,
+        refundChargeBackBalance: (await ctx.readBalance(p.ownerId, p.toCurrency, 'collection')).refundChargeback,
+      })
+    : { postings: [{ account: available(p.ownerId, p.toCurrency, p.walletType), direction: 'credit' as const, amount: toAmount }], settled: 0n };
   return {
     entries: [
       {
@@ -151,11 +161,12 @@ async function planApprove(ctx: PrePostContext, p: ResolveParams): Promise<Conve
         currency: p.toCurrency,
         postings: [
           { account: heldInflow(p.ownerId, p.toCurrency, p.walletType), direction: 'debit', amount: toAmount },
-          { account: available(p.ownerId, p.toCurrency, p.walletType), direction: 'credit', amount: toAmount },
+          ...credits,
         ],
       },
     ],
     guardNegative: [heldInflow(p.ownerId, p.fromCurrency, p.walletType), heldInflow(p.ownerId, p.toCurrency, p.walletType)],
+    settledToDebit: settled,
   };
 }
 

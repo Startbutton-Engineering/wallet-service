@@ -152,10 +152,9 @@ export class ConversionsService {
             fromBalance: balanceToJson(await post.accountBalance(ownerId, fromCurrency, walletType)),
             toBalance: balanceToJson(await post.accountBalance(ownerId, toCurrency, walletType)),
           }),
-          buildEvent: async (post) => ({
-            type: transition.eventType,
-            schemaVersion: 1,
-            payload: {
+          buildEvent: async (post) => {
+            const settledToDebit = plan.settledToDebit ?? 0n;
+            const payload = {
               operationId: post.operationId,
               conversionId,
               ownerId,
@@ -165,8 +164,13 @@ export class ConversionsService {
               fromAmount: fromAmount.toString(),
               toAmount: toAmount.toString(),
               walletType,
-            },
-          }),
+              ...(settledToDebit > 0n ? { settledToDebit: settledToDebit.toString() } : {}),
+            };
+            return [
+              transition.eventType,
+              ...(settledToDebit > 0n ? [OutboxEventType.REFUND_CHARGEBACK_SETTLED] : []),
+            ].map((type) => ({ type, schemaVersion: 1, payload }));
+          },
         };
       },
     });

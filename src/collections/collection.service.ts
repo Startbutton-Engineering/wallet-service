@@ -6,6 +6,7 @@ import { OutboxEventType, OutboxEventI, EntryI } from "../ledger/types";
 import { accountRef } from "../accounts/account";
 import { creditWithDebtPaydown } from "./credit-policy";
 import { AppError } from "../common/errors";
+import { LegacyRouteService } from "../ledger/legacy-route.service";
 
 export const CollectionOperation = {
   receive: 'collection.receive',
@@ -17,6 +18,8 @@ export interface CollectionResult {
   operationId: string;
   entryId: string;
   collectionId: string;
+  settledToDebit?: string;
+  amountToCredit?: string;
   balance: ReturnType<typeof balanceToJson>
 }
 
@@ -57,7 +60,8 @@ export interface BatchCollectionResult {
 export class CollectionsService {
   constructor(
     private readonly ledgerService: LedgerService,
-    private currencies: CurrencyRegistryService
+    private currencies: CurrencyRegistryService,
+    private readonly legacyRoute: LegacyRouteService
   ){}
 
   async collect(params: CollectionParams): Promise<CollectionResult> {
@@ -116,7 +120,11 @@ export class CollectionsService {
           settledToDebit: settled.toString(),
           amountToCredit: amountToCredit.toString(),
         },
-        alsoEmit: settled > 0n ? ['ReffunChargebackSettled'] : []
+        responseMeta: {
+          settledToDebit: settled.toString(),
+          amountToCredit: amountToCredit.toString(),
+        },
+        alsoEmit: settled > 0n ? [OutboxEventType.REFUND_CHARGEBACK_SETTLED] : []
       }
     })
   }
@@ -139,8 +147,24 @@ export class CollectionsService {
         let runningRefundChargeback = current.refundChargeback;
         const entries: EntryI[] = [];
         const perItem: BatchCollectionResult['items'] = [];
+        // Collections from before the owner's cutover were never received here: they settle as legacy did.
+        const legacyItems = await this.legacyRoute.legacyRecords('transactions', ownerId, items.map((i) => i.collectionId), ctx.session);
 
         for (const item of items) {
+          if (legacyItems.has(item.collectionId)) {
+            const repaid = runningRefundChargeback < 0n ? (-runningRefundChargeback < item.amount ? -runningRefundChargeback : item.amount) : 0n;
+            runningRefundChargeback += repaid;
+            const wallet = { ownerId, currency, walletType: 'collection' as const };
+            entries.push(...this.legacyRoute.operation(CollectionOperation.settle, item.collectionId, [{
+              wallet,
+              effects: [
+                { direction: 'credit', updatedField: 'refundsOrChargeBackBalance', amount: repaid },
+                { direction: 'credit', updatedField: 'availableBalance', amount: item.amount - repaid },
+              ],
+            }]).entries);
+            perItem.push({ collectionId: item.collectionId, entryId: '', amountToCredit: (item.amount - repaid).toString(), settledToDebit: repaid.toString() });
+            continue;
+          }
           const outstanding = await ctx.referenceNetAmount(
             item.collectionId,
             accountRef.collectionWallet(ownerId, currency, 'held-inflow'),
@@ -195,7 +219,7 @@ export class CollectionsService {
             currency,
             items.reduce((sum, i) => sum + i.amount, 0n),
             { items: perItem },
-            settledAny ? ['ReffunChargebackSettled'] : [],
+            settledAny ? [OutboxEventType.REFUND_CHARGEBACK_SETTLED] : [],
           ),
         };
       },
@@ -211,6 +235,7 @@ export class CollectionsService {
       guardHeld?: boolean;
       reversalOf?: string;
       eventMetaData?: Record<string, unknown>;
+      responseMeta?: Pick<CollectionResult, 'settledToDebit' | 'amountToCredit'>;
       alsoEmit?: string[]
     }>
   ):Promise<CollectionResult> {
@@ -233,6 +258,7 @@ export class CollectionsService {
             operationId: post.operationId,
             entryId: post.entryIds[0],
             collectionId,
+            ...planned.responseMeta,
             balance: balanceToJson(await post.accountBalance(ownerId, currency, 'collection'))
           }),
           buildEvent: async(post) => this.events(

@@ -51,15 +51,20 @@ const initiatedAmount = (ctx: PrePostContext, p: ResolveParams): Promise<bigint>
 const heldAmount = (ctx: PrePostContext, p: ResolveParams): Promise<bigint> =>
   ctx.referenceNetAmount(p.settlementId, held(p.ownerId, p.currency, p.walletType));
 
+const resolvedAs = async (ctx: PrePostContext, settlementId: string): Promise<SettlementResolution> =>
+  (await ctx.referenceEntryIds(settlementId, SettlementOperation.success)).length ? 'success' : 'failed';
+
 async function requirePending(ctx: PrePostContext, p: ResolveParams): Promise<bigint> {
   const initiated = await initiatedAmount(ctx, p);
   if (initiated === 0n) throw AppError.settlementNotInitiated(p.settlementId);
 
   const outstanding = await heldAmount(ctx, p);
   if (outstanding === 0n) {
+    // The resolution lets a caller tell a replay of the same transition from a real conflict.
     throw AppError.settlementAlreadyResolved({
       settlementId: p.settlementId,
       initiated: initiated.toString(),
+      resolution: await resolvedAs(ctx, p.settlementId),
     });
   }
   return outstanding;

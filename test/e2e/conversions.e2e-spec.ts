@@ -70,7 +70,7 @@ describe('Conversions', () => {
     const beforeFxBalance = beforeFx ? BigInt(beforeFx.balance.toString()) : 0n;
 
     const res = await initiate({
-      conversionId: randomUUID(), ownerId, fromCurrency: 'NGN', toCurrency: 'USD', fromAmount: '150000', rate: '1500',
+      conversionId: randomUUID(), ownerId, fromCurrency: 'NGN', toCurrency: 'USD', fromAmount: '150000', rate: '0.000666667',
     });
 
     expect(res.status).toBe(201);
@@ -91,7 +91,7 @@ describe('Conversions', () => {
     const beforeFxNgn = await systemBalance(System.fx('NGN'), 'NGN');
     const beforeFxNgnBalance = beforeFxNgn ? BigInt(beforeFxNgn.balance.toString()) : 0n;
 
-    await initiate({ conversionId, ownerId, fromCurrency: 'NGN', toCurrency: 'USD', fromAmount: '150000', rate: '1500' });
+    await initiate({ conversionId, ownerId, fromCurrency: 'NGN', toCurrency: 'USD', fromAmount: '150000', rate: '0.000666667' });
     const res = await approve({ conversionId, ownerId, fromCurrency: 'NGN', toCurrency: 'USD' });
 
     expect(res.status).toBe(201);
@@ -109,7 +109,7 @@ describe('Conversions', () => {
     const beforeFxUsd = await systemBalance(System.fx('USD'), 'USD');
     const beforeFxUsdBalance = beforeFxUsd ? BigInt(beforeFxUsd.balance.toString()) : 0n;
 
-    await initiate({ conversionId, ownerId, fromCurrency: 'NGN', toCurrency: 'USD', fromAmount: '150000', rate: '1500' });
+    await initiate({ conversionId, ownerId, fromCurrency: 'NGN', toCurrency: 'USD', fromAmount: '150000', rate: '0.000666667' });
     const res = await reject({ conversionId, ownerId, fromCurrency: 'NGN', toCurrency: 'USD' });
 
     expect(res.status).toBe(201);
@@ -127,10 +127,10 @@ describe('Conversions', () => {
     const conversionId = randomUUID();
 
     const initiateRes = await initiate({
-      conversionId, ownerId, fromCurrency: 'USD', toCurrency: 'GBP', fromAmount: '10000', rate: '1.25',
+      conversionId, ownerId, fromCurrency: 'USD', toCurrency: 'GBP', fromAmount: '10000', rate: '0.8',
     });
     expect(initiateRes.status).toBe(201);
-    expect(initiateRes.body.data.toAmount).toBe('8000'); // $100.00 at 1.25 USD/GBP -> £80.00
+    expect(initiateRes.body.data.toAmount).toBe('8000'); // $100.00 at £0.8/$1 -> £80.00
     expect(initiateRes.body.data.fromBalance.available).toBe('0');
     expect(initiateRes.body.data.toBalance.heldInflow).toBe('8000');
 
@@ -152,7 +152,7 @@ describe('Conversions', () => {
   it('rejects an unregistered currency', async () => {
     const ownerId = await givenCollectionWallet('500000');
     const res = await initiate({
-      conversionId: randomUUID(), ownerId, fromCurrency: 'NGN', toCurrency: 'ZZZ', fromAmount: '150000', rate: '1500',
+      conversionId: randomUUID(), ownerId, fromCurrency: 'NGN', toCurrency: 'ZZZ', fromAmount: '150000', rate: '0.000666667',
     });
 
     expect(res.status).toBe(400);
@@ -162,7 +162,7 @@ describe('Conversions', () => {
   it('rejects initiating more than the wallet holds', async () => {
     const ownerId = await givenCollectionWallet('1000');
     const res = await initiate({
-      conversionId: randomUUID(), ownerId, fromCurrency: 'NGN', toCurrency: 'USD', fromAmount: '1001', rate: '1500',
+      conversionId: randomUUID(), ownerId, fromCurrency: 'NGN', toCurrency: 'USD', fromAmount: '1001', rate: '0.000666667',
     });
 
     expect(res.status).toBe(422);
@@ -172,7 +172,7 @@ describe('Conversions', () => {
   it('rejects initiating the same conversionId twice', async () => {
     const ownerId = await givenCollectionWallet('500000');
     const conversionId = randomUUID();
-    const body = { conversionId, ownerId, fromCurrency: 'NGN', toCurrency: 'USD', fromAmount: '150000', rate: '1500' };
+    const body = { conversionId, ownerId, fromCurrency: 'NGN', toCurrency: 'USD', fromAmount: '150000', rate: '0.000666667' };
 
     const first = await initiate(body);
     expect(first.status).toBe(201);
@@ -194,7 +194,7 @@ describe('Conversions', () => {
     const ownerId = await givenCollectionWallet('500000');
     const conversionId = randomUUID();
 
-    await initiate({ conversionId, ownerId, fromCurrency: 'NGN', toCurrency: 'USD', fromAmount: '150000', rate: '1500' });
+    await initiate({ conversionId, ownerId, fromCurrency: 'NGN', toCurrency: 'USD', fromAmount: '150000', rate: '0.000666667' });
     await approve({ conversionId, ownerId, fromCurrency: 'NGN', toCurrency: 'USD' });
     const res = await reject({ conversionId, ownerId, fromCurrency: 'NGN', toCurrency: 'USD' });
 
@@ -206,7 +206,7 @@ describe('Conversions', () => {
     const ownerId = await givenCollectionWallet('500000');
     const conversionId = randomUUID();
     const key = randomUUID();
-    const body = { conversionId, ownerId, fromCurrency: 'NGN', toCurrency: 'USD', fromAmount: '150000', rate: '1500' };
+    const body = { conversionId, ownerId, fromCurrency: 'NGN', toCurrency: 'USD', fromAmount: '150000', rate: '0.000666667' };
 
     const first = await initiate(body, key);
     const second = await initiate(body, key);
@@ -220,7 +220,7 @@ describe('Conversions', () => {
     const pendingId = randomUUID();
     const resolvedId = randomUUID();
     const body = (conversionId: string) => ({
-      conversionId, ownerId, fromCurrency: 'NGN', toCurrency: 'USD', fromAmount: '150000', rate: '1500',
+      conversionId, ownerId, fromCurrency: 'NGN', toCurrency: 'USD', fromAmount: '150000', rate: '0.000666667',
     });
 
     await initiate(body(pendingId));
@@ -235,7 +235,7 @@ describe('Conversions', () => {
     expect(ids).not.toContain(resolvedId);
     const pending = res.body.data.find((c: { conversionId: string }) => c.conversionId === pendingId);
     expect(pending).toMatchObject({
-      ownerId, fromCurrency: 'NGN', toCurrency: 'USD', rate: '1500', fromAmount: '150000', toAmount: '100',
+      ownerId, fromCurrency: 'NGN', toCurrency: 'USD', rate: '0.000666667', fromAmount: '150000', toAmount: '100',
     });
   });
 
@@ -243,7 +243,7 @@ describe('Conversions', () => {
     it('defaults to the collection wallet when walletType is omitted', async () => {
       const ownerId = await givenCollectionWallet('500000');
       const res = await initiate({
-        conversionId: randomUUID(), ownerId, fromCurrency: 'NGN', toCurrency: 'USD', fromAmount: '150000', rate: '1500',
+        conversionId: randomUUID(), ownerId, fromCurrency: 'NGN', toCurrency: 'USD', fromAmount: '150000', rate: '0.000666667',
       });
 
       expect(res.status).toBe(201);
@@ -255,7 +255,7 @@ describe('Conversions', () => {
       const conversionId = randomUUID();
 
       const initiateRes = await initiate({
-        conversionId, ownerId, fromCurrency: 'NGN', toCurrency: 'USD', fromAmount: '150000', rate: '1500',
+        conversionId, ownerId, fromCurrency: 'NGN', toCurrency: 'USD', fromAmount: '150000', rate: '0.000666667',
         walletType: 'payout',
       });
       expect(initiateRes.status).toBe(201);
@@ -283,7 +283,7 @@ describe('Conversions', () => {
       const conversionId = randomUUID();
 
       await initiate({
-        conversionId, ownerId, fromCurrency: 'NGN', toCurrency: 'USD', fromAmount: '150000', rate: '1500',
+        conversionId, ownerId, fromCurrency: 'NGN', toCurrency: 'USD', fromAmount: '150000', rate: '0.000666667',
         walletType: 'payout',
       });
       const res = await reject({ conversionId, ownerId, fromCurrency: 'NGN', toCurrency: 'USD', walletType: 'payout' });
@@ -296,7 +296,7 @@ describe('Conversions', () => {
     it('rejects initiating more than the payout wallet holds', async () => {
       const ownerId = await givenPayoutWallet('1000');
       const res = await initiate({
-        conversionId: randomUUID(), ownerId, fromCurrency: 'NGN', toCurrency: 'USD', fromAmount: '1001', rate: '1500',
+        conversionId: randomUUID(), ownerId, fromCurrency: 'NGN', toCurrency: 'USD', fromAmount: '1001', rate: '0.000666667',
         walletType: 'payout',
       });
 
@@ -311,11 +311,11 @@ describe('Conversions', () => {
       });
 
       const collectionRes = await initiate({
-        conversionId: randomUUID(), ownerId, fromCurrency: 'NGN', toCurrency: 'USD', fromAmount: '150000', rate: '1500',
+        conversionId: randomUUID(), ownerId, fromCurrency: 'NGN', toCurrency: 'USD', fromAmount: '150000', rate: '0.000666667',
         walletType: 'collection',
       });
       const payoutRes = await initiate({
-        conversionId: randomUUID(), ownerId, fromCurrency: 'NGN', toCurrency: 'USD', fromAmount: '150000', rate: '1500',
+        conversionId: randomUUID(), ownerId, fromCurrency: 'NGN', toCurrency: 'USD', fromAmount: '150000', rate: '0.000666667',
         walletType: 'payout',
       });
 

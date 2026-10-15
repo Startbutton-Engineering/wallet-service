@@ -101,6 +101,9 @@ export class AccountsRepository implements OnModuleInit {
     const heldInflow = types.get('held-inflow') ?? 0n;
     const heldOutflow = types.get('held-outflow') ?? 0n;
     const refundChargeback = types.get('refund-chargeback') ?? 0n;
+    const lien = types.get('lien') ?? 0n;
+    const legacyPending = types.get('legacy-pending') ?? 0n;
+    const reserveOverdraft = types.get('reserve-overdraft') ?? 0n;
 
     return {
       tenantId,
@@ -110,8 +113,11 @@ export class AccountsRepository implements OnModuleInit {
       available,
       heldInflow,
       heldOutflow,
-      ledger: available + heldInflow + heldOutflow,
-      refundChargeback
+      ledger: available + heldInflow + heldOutflow + refundChargeback + lien + legacyPending,
+      refundChargeback,
+      lien,
+      legacyPending,
+      reserveOverdraft
     }
   }
 }

@@ -4,7 +4,8 @@ import { CurrencyRegistryService } from "../currency/currency-registry.service";
 import { AccountsRepository } from "../accounts/accounts.repository";
 import { AppError } from "../common/errors";
 import { accountRef, WALLET_TYPES, WalletType } from "../accounts/account";
-import { LedgerService } from "../ledger/ledger.service";
+import { LedgerService, PostPostingContext } from "../ledger/ledger.service";
+import { creditWithDebtPaydown } from "../collections/credit-policy";
 import { OutboxEventType } from "../ledger/types";
 
 /** operationType stamped on every wallet-to-wallet transfer posting. Never change this string
@@ -57,17 +58,48 @@ export class WalletsService {
       requestPayload: { transferId, ownerId, currency, amount: amount.toString(), from, to },
       reference: transferId,
       generateLedgerOps: async (ctx) => {
-        const alreadyApplied = await ctx.referenceNetAmount(transferId, destination, [
+        // Checked on the source: a collection destination may receive nothing in `available`
+        // when the whole amount goes to refund-chargeback debt.
+        const alreadyApplied = await ctx.referenceNetAmount(transferId, source, [
           WALLET_TRANSFER_OPERATION,
         ]);
         if (alreadyApplied !== 0n) throw AppError.walletTransferAlreadyApplied(transferId);
+
+        // Money arriving in a collection wallet repays refund/chargeback debt first, as any
+        // other collection-wallet credit does.
+        const { postings: credits, settled, amountToCredit } = to === 'collection'
+          ? creditWithDebtPaydown({
+              ownerId,
+              currency,
+              amount,
+              refundChargeBackBalance: (await ctx.readBalance(ownerId, currency, 'collection')).refundChargeback,
+            })
+          : {
+              postings: [{ account: destination, direction: 'credit' as const, amount }],
+              settled: 0n,
+              amountToCredit: amount,
+            };
+
+        const eventPayload = async (post: PostPostingContext) => ({
+          operationId: post.operationId,
+          transferId,
+          ownerId,
+          currency,
+          amount: amount.toString(),
+          from,
+          to,
+          settledToDebit: settled.toString(),
+          amountToCredit: amountToCredit.toString(),
+          source: balanceToJson(await post.accountBalance(ownerId, currency, from)),
+          destination: balanceToJson(await post.accountBalance(ownerId, currency, to)),
+        });
 
         return {
           entries: [{
             currency,
             postings: [
               { account: source, direction: 'debit', amount },
-              { account: destination, direction: 'credit', amount },
+              ...credits,
             ],
           }],
           guardNegative: [source],
@@ -80,21 +112,13 @@ export class WalletsService {
             source: balanceToJson(await post.accountBalance(ownerId, currency, from)),
             destination: balanceToJson(await post.accountBalance(ownerId, currency, to)),
           }),
-          buildEvent: async (post) => ({
-            type: OutboxEventType.WALLET_TRANSFERRED,
-            schemaVersion: 1,
-            payload: {
-              operationId: post.operationId,
-              transferId,
-              ownerId,
-              currency,
-              amount: amount.toString(),
-              from,
-              to,
-              source: balanceToJson(await post.accountBalance(ownerId, currency, from)),
-              destination: balanceToJson(await post.accountBalance(ownerId, currency, to)),
-            },
-          }),
+          buildEvent: async (post) => {
+            const payload = await eventPayload(post);
+            return [
+              OutboxEventType.WALLET_TRANSFERRED,
+              ...(settled > 0n ? [OutboxEventType.REFUND_CHARGEBACK_SETTLED] : []),
+            ].map((type) => ({ type, schemaVersion: 1, payload }));
+          },
         };
       },
     });

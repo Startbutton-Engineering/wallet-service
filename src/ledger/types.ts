@@ -105,5 +105,20 @@ export enum OutboxEventType {
   CONVERSION_REJECTED = 'ConversionRejected',
   SETTLEMENT_INITIATED = 'SettlementInitiated',
   SETTLEMENT_SUCCEEDED = 'SettlementSucceeded',
-  SETTLEMENT_FAILED = 'SettlementFailed'
+  SETTLEMENT_FAILED = 'SettlementFailed',
+  REFUND_PENDING = 'RefundPending',
+  REFUND_SUCCEEDED = 'RefundSucceeded',
+  REFUND_FAILED = 'RefundFailed',
+  REFUND_FEE_INITIATED = 'RefundFeeInitiated',
+  REFUND_FEE_SUCCEEDED = 'RefundFeeSucceeded',
+  REFUND_FEE_REVERSED = 'RefundFeeReversed',
+  REFUND_FEE_REVERSE_FAILED = 'RefundFeeReverseFailed',
+  REFUND_CHARGEBACK_SETTLED = 'RefundChargebackSettled',
+  TOPUP_CREDITED = 'TopupCredited',
+  LIEN_PLACED = 'LienPlaced',
+  LIEN_RELEASED = 'LienReleased',
+  DISPUTE_ACCEPTED = 'DisputeAccepted',
+  ROLLING_RESERVE_RELEASED = 'RollingReserveReleased',
+  LEDGER_CUTOVER = 'LedgerCutover',
+  LEGACY_EFFECT_APPLIED = 'LegacyEffectApplied'
 }
