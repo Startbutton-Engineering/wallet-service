@@ -9,6 +9,7 @@ import {
   LedgerHarness,
   LedgerHarnessOptions,
   mockCurrencyRegistry,
+  walletBalance,
 } from '../../mocks';
 
 const base = {
@@ -60,6 +61,39 @@ describe('LiensService', () => {
         ['payout:available', 'debit', 400n],
         ['payout:lien', 'credit', 400n],
       ]);
+    });
+
+    it('replaces a smaller lien by moving only the difference out of available', async () => {
+      build({ balance: () => walletBalance({ available: 1000n, lien: 150n }) });
+
+      await service.apply('place', base);
+
+      expect(legs(ledger.lastOperation.entries[0])).toEqual([
+        ['payout:available', 'debit', 250n],
+        ['payout:lien', 'credit', 250n],
+      ]);
+      expect(ledger.lastOperation.guardNegative?.map(label)).toEqual(['payout:available']);
+      expect(ledger.events[0].payload).toMatchObject({ amount: '400', previousLien: '150' });
+    });
+
+    it('replaces a larger lien by handing the difference back to available', async () => {
+      build({ balance: () => walletBalance({ available: 100n, lien: 700n }) });
+
+      await service.apply('place', base);
+
+      expect(legs(ledger.lastOperation.entries[0])).toEqual([
+        ['payout:lien', 'debit', 300n],
+        ['payout:available', 'credit', 300n],
+      ]);
+      expect(ledger.lastOperation.guardNegative?.map(label)).toEqual(['payout:lien']);
+    });
+
+    it('posts nothing when the lien already equals the amount', async () => {
+      build({ balance: () => walletBalance({ available: 100n, lien: 400n }) });
+
+      await expect(service.apply('place', base)).resolves.toMatchObject({ entryId: null, lienId: 'LIEN-1' });
+      expect(ledger.lastOperation.entries).toEqual([]);
+      expect(ledger.lastOperation.guardNegative).toEqual([]);
     });
 
     it('guards available, so a lien cannot exceed the spendable balance', async () => {

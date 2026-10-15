@@ -5,6 +5,8 @@ import { balanceToJson } from "../wallets/dto";
 import { OutboxEventType } from "../ledger/types";
 import { accountRef, AccountRef, WalletType } from "../accounts/account";
 import { AppError } from "../common/errors";
+import { PrePostContext } from "../ledger/ledger.service";
+import { EntryI } from "../ledger/types";
 
 export const LienOperation = {
   place: 'lien.place',
@@ -15,7 +17,8 @@ export type LienAction = keyof typeof LienOperation;
 
 export interface LienResult {
   operationId: string;
-  entryId: string;
+  /** Null when a place set the lien to the amount already held, so nothing was posted. */
+  entryId: string | null;
   lienId: string;
   balance: ReturnType<typeof balanceToJson>;
 }
@@ -30,31 +33,53 @@ export interface LienParams {
   amount: bigint;
 }
 
+interface LienPlan {
+  postings: EntryI['postings'];
+  guardNegative: AccountRef[];
+  previousLien?: bigint;
+}
+
 interface LienTransition {
   operationType: string;
   eventType: OutboxEventType;
-  /** Where the amount moves from and to within the wallet. */
-  from: 'available' | 'lien';
-  to: 'available' | 'lien';
+  applied: 'available' | 'lien';
   alreadyApplied: (lienId: string) => AppError;
+  plan: (ctx: PrePostContext, params: LienParams, account: (type: 'available' | 'lien') => AccountRef) => Promise<LienPlan>;
 }
 
+const move = (from: AccountRef, to: AccountRef, amount: bigint): EntryI['postings'] => [
+  { account: from, direction: 'debit', amount },
+  { account: to, direction: 'credit', amount },
+];
+
 const TRANSITIONS: Record<LienAction, LienTransition> = {
-  /** Fence off part of `available`: it stays the owner's (and in `ledger`) but can't be spent. */
   place: {
     operationType: LienOperation.place,
     eventType: OutboxEventType.LIEN_PLACED,
-    from: 'available',
-    to: 'lien',
+    applied: 'lien',
     alreadyApplied: (lienId) => AppError.lienAlreadyPlaced(lienId),
+    plan: async (ctx, { ownerId, currency, walletType, amount }, account) => {
+      const { lien: previousLien } = await ctx.readBalance(ownerId, currency, walletType);
+      const delta = amount - previousLien;
+      if (delta > 0n) {
+        return { postings: move(account('available'), account('lien'), delta), guardNegative: [account('available')], previousLien };
+      }
+      if (delta < 0n) {
+        return { postings: move(account('lien'), account('available'), -delta), guardNegative: [account('lien')], previousLien };
+      }
+      return { postings: [], guardNegative: [], previousLien };
+    },
   },
-  /** Hand the fenced-off amount back to `available`. */
+  /** Hand the fenced-off amount back to `available`; it can't free more than is held. */
   release: {
     operationType: LienOperation.release,
     eventType: OutboxEventType.LIEN_RELEASED,
-    from: 'lien',
-    to: 'available',
+    applied: 'available',
     alreadyApplied: (lienId) => AppError.lienAlreadyReleased(lienId),
+    plan: async (_ctx, { amount }, account) => ({
+      postings: move(account('lien'), account('available'), amount),
+      guardNegative: [account('lien')],
+    }),
   },
 };
 
@@ -65,14 +90,11 @@ export class LiensService {
     private readonly currencies: CurrencyRegistryService
   ) {}
 
-  /** Move `amount` between the wallet's `available` and `lien` accounts. Every debit guards
-   * `available`, so a placed lien blocks spending with no change to any other operation. */
   async apply(action: LienAction, params: LienParams): Promise<LienResult> {
     const { tenantId, idempotencyKey, lienId, ownerId, walletType, currency, amount } = params;
     await this.currencies.require(currency);
     const transition = TRANSITIONS[action];
-    const from: AccountRef = accountRef.user(ownerId, currency, walletType, transition.from);
-    const to: AccountRef = accountRef.user(ownerId, currency, walletType, transition.to);
+    const account = (type: 'available' | 'lien'): AccountRef => accountRef.user(ownerId, currency, walletType, type);
 
     return this.ledgerService.post<LienResult>({
       tenantId,
@@ -81,22 +103,16 @@ export class LiensService {
       requestPayload: { lienId, ownerId, walletType, currency, amount: amount.toString() },
       reference: lienId,
       generateLedgerOps: async (ctx) => {
-        const applied = await ctx.referenceNetAmount(lienId, to, [transition.operationType]);
+        const applied = await ctx.referenceNetAmount(lienId, account(transition.applied), [transition.operationType]);
         if (applied !== 0n) throw transition.alreadyApplied(lienId);
 
+        const planned = await transition.plan(ctx, params, account);
         return {
-          entries: [{
-            currency,
-            postings: [
-              { account: from, direction: 'debit', amount },
-              { account: to, direction: 'credit', amount },
-            ],
-          }],
-          // Placing can't take more than is spendable; releasing can't free more than is held.
-          guardNegative: [from],
+          entries: planned.postings.length ? [{ currency, postings: planned.postings }] : [],
+          guardNegative: planned.guardNegative,
           buildResponse: async (post) => ({
             operationId: post.operationId,
-            entryId: post.entryIds[0],
+            entryId: post.entryIds[0] ?? null,
             lienId,
             balance: balanceToJson(await post.accountBalance(ownerId, currency, walletType)),
           }),
@@ -110,6 +126,7 @@ export class LiensService {
               walletType,
               currency,
               amount: amount.toString(),
+              ...(planned.previousLien !== undefined && { previousLien: planned.previousLien.toString() }),
               balance: balanceToJson(await post.accountBalance(ownerId, currency, walletType)),
             },
           }),
