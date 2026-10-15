@@ -120,11 +120,10 @@ export class CutoverService {
     return [...wallets.values()];
   }
 
-  /** Marks every legacy document as ledger-owned. Other partitions are zeroed and point at the kept document. */
   private async markLegacyWallets(wallets: CutoverWallet[], operationId: string, cutoverAt: Date, session: ClientSession): Promise<void> {
     const legacy = this.legacyWallets.collection();
     for (const w of wallets) {
-      await legacy.updateOne({ _id: w.legacyWalletId }, { $set: { ledgerCutover: { cutoverAt, operationId } } }, { session });
+      await legacy.updateOne({ _id: w.legacyWalletId }, { $set: { ledgerCutover: { cutoverAt, operationId }, isLedgerProcessed: true } }, { session });
       if (w.mergedWalletIds.length === 0) continue;
       await legacy.updateMany(
         { _id: { $in: w.mergedWalletIds } },
@@ -132,6 +131,7 @@ export class CutoverService {
           $set: {
             availableBalance: 0, ledgerBalance: 0, lienBalance: 0, refundsOrChargeBackBalance: 0, rollingReserveOverdraftBalance: 0,
             ledgerCutover: { cutoverAt, operationId, mergedInto: w.legacyWalletId },
+            isLedgerProcessed: false,
             updatedAt: cutoverAt,
           },
         },

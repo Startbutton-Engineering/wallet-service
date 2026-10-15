@@ -70,17 +70,16 @@ export class LegacyWalletsService {
     return this.database.conn.getClient().db(this.config.legacyDbName).collection(name);
   }
 
-  async findCutOver(wallet: WalletKey, session?: ClientSession): Promise<{ _id: Types.ObjectId; scale: number } | null> {
+  async findLedgerProcessed(wallet: WalletKey, session?: ClientSession): Promise<{ _id: Types.ObjectId; scale: number } | null> {
     if (!this.config.legacyDbName || !Types.ObjectId.isValid(wallet.ownerId)) return null;
     const doc = await this.collection().findOne(
       {
         merchantId: new Types.ObjectId(wallet.ownerId),
         currency: wallet.currency,
         type: wallet.walletType,
-        'ledgerCutover.cutoverAt': { $exists: true },
-        'ledgerCutover.mergedInto': { $exists: false },
+        isLedgerProcessed: true,
       },
-      { session, projection: { _id: 1 } },
+      { session, projection: { _id: 1 }, sort: { createdAt: 1, _id: 1 } },
     );
     if (!doc) return null;
     return { _id: doc._id as Types.ObjectId, scale: (await this.currencies.require(wallet.currency)).scale };
@@ -103,14 +102,14 @@ export class LegacyWalletsService {
     return doc !== null;
   }
 
-  /** Rewrites the legacy document of each cut-over wallet among `wallets` from its ledger balance. */
+  /** Rewrites the legacy document of each ledger-processed wallet among `wallets` from its ledger balance. */
   async updateFromLedger(tenantId: string, wallets: WalletKey[], session: ClientSession): Promise<void> {
     const unique = new Map(wallets.map((w) => [`${w.ownerId}\0${w.currency}\0${w.walletType}`, w]));
     for (const wallet of unique.values()) {
-      const legacy = await this.findCutOver(wallet, session);
+      const legacy = await this.findLedgerProcessed(wallet, session);
       if (!legacy) continue;
       const balance = await this.accounts.balanceBreakdown(tenantId, wallet.ownerId, wallet.currency, wallet.walletType, session);
-      if (!balance) throw AppError.legacyWalletUpdateFailed('Cut-over wallet has no ledger accounts', { ...wallet });
+      if (!balance) throw AppError.legacyWalletUpdateFailed('Ledger-processed wallet has no ledger accounts', { ...wallet });
       const now = new Date();
       await this.collection().updateOne(
         { _id: legacy._id },

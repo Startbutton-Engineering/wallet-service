@@ -105,21 +105,21 @@ describe('LegacyWalletsService', () => {
     expect(() => setup({ legacyDbName: '' }).service.collection()).toThrow('LEGACY_DB_NAME is not configured');
   });
 
-  it('finds the kept legacy document of a cut-over wallet, with its scale', async () => {
+  it('finds the oldest ledger-processed legacy document of the wallet, with its scale', async () => {
     const { service, findOne, db } = setup();
 
-    await expect(service.findCutOver(wallet, session)).resolves.toEqual({ _id: legacyId, scale: 2 });
+    await expect(service.findLedgerProcessed(wallet, session)).resolves.toEqual({ _id: legacyId, scale: 2 });
     expect(db).toHaveBeenCalledWith('startbutton');
     expect(findOne).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'payout', 'ledgerCutover.mergedInto': { $exists: false } }),
-      expect.objectContaining({ session }),
+      expect.objectContaining({ type: 'payout', currency: 'NGN', isLedgerProcessed: true }),
+      expect.objectContaining({ session, sort: { createdAt: 1, _id: 1 } }),
     );
   });
 
-  it('finds nothing without a legacy database, for an owner that is not a back-end merchant id, or before cutover', async () => {
-    await expect(setup({ legacyDbName: '' }).service.findCutOver(wallet)).resolves.toBeNull();
-    await expect(setup().service.findCutOver({ ...wallet, ownerId: 'not-an-object-id' })).resolves.toBeNull();
-    await expect(setup({ found: null }).service.findCutOver(wallet)).resolves.toBeNull();
+  it('finds nothing without a legacy database, for an owner that is not a back-end merchant id, or with no ledger-processed document', async () => {
+    await expect(setup({ legacyDbName: '' }).service.findLedgerProcessed(wallet)).resolves.toBeNull();
+    await expect(setup().service.findLedgerProcessed({ ...wallet, ownerId: 'not-an-object-id' })).resolves.toBeNull();
+    await expect(setup({ found: null }).service.findLedgerProcessed(wallet)).resolves.toBeNull();
   });
 
   it('tells whether an owner has been cut over', async () => {

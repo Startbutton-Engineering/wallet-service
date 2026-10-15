@@ -68,10 +68,11 @@ describe('Ledger cutover and legacy effects', () => {
       expect(res.status).toBe(201);
       // The canonical document now carries every partition; the other is zeroed and points at it.
       expect(await legacyDoc(canonical._id)).toMatchObject({
-        availableBalance: 5100.25, ledgerBalance: 6300, lienBalance: 500, ledgerCutover: expect.objectContaining({ operationId: res.body.data.operationId }),
+        availableBalance: 5100.25, ledgerBalance: 6300, lienBalance: 500, isLedgerProcessed: true,
+        ledgerCutover: expect.objectContaining({ operationId: res.body.data.operationId }),
       });
       expect(await legacyDoc(partition._id)).toMatchObject({
-        availableBalance: 0, ledgerBalance: 0, ledgerCutover: expect.objectContaining({ mergedInto: canonical._id }),
+        availableBalance: 0, ledgerBalance: 0, isLedgerProcessed: false, ledgerCutover: expect.objectContaining({ mergedInto: canonical._id }),
       });
       // Negative fields move as they are.
       expect(await legacyDoc(payout._id)).toMatchObject({
@@ -102,6 +103,25 @@ describe('Ledger cutover and legacy effects', () => {
 
       expect(res.status).toBe(409);
       expect(res.body.data.code).toBe('ALREADY_CUT_OVER');
+    });
+
+    it('keeps a wallet created after cutover up to date when it is flagged isLedgerProcessed', async () => {
+      const { ownerId } = await givenLegacyMerchant();
+      await post('/migrations/cutover', { ownerId });
+      // Back-end creates these after cutover: no ledgerCutover, one flagged and one not.
+      const merchantId = new Types.ObjectId(ownerId);
+      const blank = { availableBalance: 0, ledgerBalance: 0, lienBalance: 0, refundsOrChargeBackBalance: 0, rollingReserveOverdraftBalance: 0 };
+      const usdCollection = { _id: new Types.ObjectId(), merchantId, type: 'collection', currency: 'USD', createdAt: new Date(), ...blank, isLedgerProcessed: true };
+      const usdPayout = { _id: new Types.ObjectId(), merchantId, type: 'payout', currency: 'USD', createdAt: new Date(), ...blank, isLedgerProcessed: false };
+      await wallets().insertMany([usdCollection, usdPayout]);
+
+      const collectionId = randomUUID();
+      await post('/collections/collect', { collectionId, ownerId, currency: 'USD', amount: '5000' });
+      await post('/collections/settle', { collectionId, ownerId, currency: 'USD', amount: '3000' });
+      await post('/wallets/transfer', { transferId: randomUUID(), ownerId, currency: 'USD', amount: '1000', from: 'collection', to: 'payout' });
+
+      expect(await legacyDoc(usdCollection._id)).toMatchObject({ availableBalance: 20, ledgerBalance: 40 });
+      expect(await legacyDoc(usdPayout._id)).toMatchObject({ availableBalance: 0, ledgerBalance: 0 });
     });
 
     it('rejects an owner with no legacy wallets', async () => {
