@@ -14,6 +14,7 @@ describe('loadConfig', () => {
       serverEnv: 'development',
       reconciliation: { enabled: false, runAt: '02:00', timeZone: 'Africa/Lagos', pollIntervalMs: 300000 },
       slack: { enabled: false, ledgerIntegrityWebhookUrl: '' },
+      rabbitMq: { url: '', queueType: 'quorum' },
     });
   });
 
@@ -34,6 +35,8 @@ describe('loadConfig', () => {
         RECONCILIATION_POLL_INTERVAL_MS: '60000',
         ENABLE_SLACK_NOTIFICATIONS: 'true',
         SLACK_LEDGER_INTEGRITY_WEBHOOK_URL: 'https://hooks.slack.com/services/x',
+        RABBITMQ_URL: 'amqps://broker:5671',
+        RABBITMQ_QUEUE_TYPE: 'classic',
       } as NodeJS.ProcessEnv),
     ).toEqual({
       mongoUri: 'mongodb://mongo:27017',
@@ -46,6 +49,7 @@ describe('loadConfig', () => {
       serverEnv: 'production',
       reconciliation: { enabled: true, runAt: '03:30', timeZone: 'Europe/London', pollIntervalMs: 60000 },
       slack: { enabled: true, ledgerIntegrityWebhookUrl: 'https://hooks.slack.com/services/x' },
+      rabbitMq: { url: 'amqps://broker:5671', queueType: 'classic' },
     });
   });
 

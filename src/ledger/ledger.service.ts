@@ -48,6 +48,7 @@ export interface PostArgs<T> {
   requestPayload: unknown;
   reference?: string | null;
   actor?: string | null;
+  operationId?: string;
   generateLedgerOps: (ctx: PrePostContext) => Promise<LedgerOperation<T>>;
 }
 
@@ -154,7 +155,7 @@ export class LedgerService implements OnModuleInit {
     session: ClientSession
   ): Promise<T> {
     const { tenantId } = args;
-    const operationId = new Types.ObjectId();
+    const operationId = new Types.ObjectId(args.operationId);
 
     const PrePostContext: PrePostContext = {
       session,

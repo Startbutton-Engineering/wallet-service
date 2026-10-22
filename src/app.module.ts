@@ -22,10 +22,12 @@ import { RollingReservesModule } from './rolling-reserves/rolling-reserves.modul
 import { ReconciliationModule } from './reconciliation/reconciliation.module';
 import { ReportsModule } from './reports/reports.module';
 import { MigrationsModule } from './migrations/migrations.module';
+import { QueueModule } from './queue/queue.module';
 
 @Module({
   imports: [
     DatabaseModule,
+    QueueModule,
     CurrencyModule,
     AccountsModule,
     LedgerModule,

@@ -19,6 +19,12 @@ export interface AppConfig {
     enabled: boolean;
     ledgerIntegrityWebhookUrl: string;
   };
+  rabbitMq: {
+    /** Empty disables the queue: queued requests are refused and no consumer starts. */
+    url: string;
+    /** `x-queue-type` for every queue and its DLQ; must match what the broker already declared. */
+    queueType: string;
+  };
 }
 export const CONFIG = Symbol('APP_CONFIG')
 
@@ -41,6 +47,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     slack: {
       enabled: env.ENABLE_SLACK_NOTIFICATIONS === 'true',
       ledgerIntegrityWebhookUrl: env.SLACK_LEDGER_INTEGRITY_WEBHOOK_URL ?? '',
+    },
+    rabbitMq: {
+      url: env.RABBITMQ_URL ?? '',
+      queueType: env.RABBITMQ_QUEUE_TYPE || 'quorum',
     },
   }
 }

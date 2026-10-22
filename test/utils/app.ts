@@ -6,6 +6,8 @@ import { randomUUID } from "crypto";
 import { AppModule } from "../../src/app.module";
 import { AppExceptionsFilter } from "../../src/common/error.filter";
 import { mongo } from "mongoose";
+import { MESSAGE_QUEUE } from "../../src/queue/message-queue";
+import { InMemoryQueue } from "./in-memory-queue";
 
 export const TEST_API_KEY = 'test-key';
 
@@ -14,6 +16,8 @@ export interface TestApp {
   db: DatabaseService;
   /** back-end's database stand-in, holding the legacy `wallets` collection. */
   legacyDb: mongo.Db;
+  /** Stands in for RabbitMQ: queued work runs only when the test drains it. */
+  queue: InMemoryQueue;
   close: () => Promise<void>
 }
 
@@ -39,9 +43,12 @@ export async function createTestApp(overrides: ProviderOverride[] = [], options:
     API_KEYS: TEST_API_KEY,
   } as NodeJS.ProcessEnv)
 
+  const queue = new InMemoryQueue()
   let builder = Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(CONFIG)
     .useValue(config)
+    .overrideProvider(MESSAGE_QUEUE)
+    .useValue(queue)
   for (const o of overrides) {
     builder = builder.overrideProvider(o.provide as never).useValue(o.useValue)
   }
@@ -58,6 +65,7 @@ export async function createTestApp(overrides: ProviderOverride[] = [], options:
     app,
     db: mongo,
     legacyDb,
+    queue,
     close: async() => {
       await mongo.db.dropDatabase().catch(() => undefined);
       await legacyDb.dropDatabase().catch(() => undefined);
