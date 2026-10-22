@@ -2,6 +2,9 @@ import { randomUUID } from "crypto";
 import request from 'supertest';
 import { Types } from "mongoose";
 import { createTestApp, TEST_API_KEY, TestApp } from "../utils/app";
+import { QueueName } from "../../src/queue/message-queue";
+import { LedgerService } from "../../src/ledger/ledger.service";
+import { AppError } from "../../src/common/errors";
 
 describe('Ledger cutover and legacy effects', () => {
   let ctx: TestApp;
@@ -12,6 +15,10 @@ describe('Ledger cutover and legacy effects', () => {
 
   afterAll(async () => {
     await ctx.close();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   function post(path: string, body: Record<string, unknown>, idempotencyKey: string = randomUUID()) {
@@ -43,6 +50,9 @@ describe('Ledger cutover and legacy effects', () => {
 
   const legacyDoc = (id: Types.ObjectId) => wallets().findOne({ _id: id });
 
+  const status = (operationId: string) =>
+    request(ctx.app.getHttpServer()).get(`/migrations/cutover/${operationId}`).set('x-api-key', TEST_API_KEY);
+
   describe('POST /migrations/cutover', () => {
     it('previews the seed without writing anything', async () => {
       const { ownerId, canonical } = await givenLegacyMerchant();
@@ -60,16 +70,35 @@ describe('Ledger cutover and legacy effects', () => {
       expect((await legacyDoc(canonical._id))?.ledgerCutover).toBeUndefined();
     });
 
+    it('records and queues the cutover, returning its operationId before anything moves', async () => {
+      const { ownerId, canonical } = await givenLegacyMerchant();
+
+      const res = await post('/migrations/cutover', { ownerId });
+
+      expect(res.status).toBe(202);
+      expect(res.body.data).toMatchObject({ ownerId, status: 'pending', attempts: 0, result: null, error: null, startedAt: null });
+      expect(res.body.data.operationId).toMatch(/^[a-f0-9]{24}$/);
+      expect(ctx.queue.published.at(-1)).toEqual({ queue: QueueName.LedgerCutover, message: { operationId: res.body.data.operationId } });
+      expect((await status(res.body.data.operationId)).body.data.status).toBe('pending');
+      expect((await legacyDoc(canonical._id))?.ledgerCutover).toBeUndefined();
+    });
+
     it('moves every wallet as it is, merges partitions and marks the legacy documents', async () => {
       const { ownerId, canonical, partition, payout, usdt } = await givenLegacyMerchant();
 
       const res = await post('/migrations/cutover', { ownerId });
+      await ctx.queue.drain();
+      const { operationId } = res.body.data;
 
-      expect(res.status).toBe(201);
+      expect((await status(operationId)).body.data).toMatchObject({
+        operationId, status: 'completed', attempts: 1, error: null,
+        result: expect.objectContaining({ operationId, ownerId, wallets: expect.any(Array) }),
+        finishedAt: expect.any(String),
+      });
       // The canonical document now carries every partition; the other is zeroed and points at it.
       expect(await legacyDoc(canonical._id)).toMatchObject({
         availableBalance: 5100.25, ledgerBalance: 6300, lienBalance: 500, isLedgerProcessed: true,
-        ledgerCutover: expect.objectContaining({ operationId: res.body.data.operationId }),
+        ledgerCutover: expect.objectContaining({ operationId }),
       });
       expect(await legacyDoc(partition._id)).toMatchObject({
         availableBalance: 0, ledgerBalance: 0, isLedgerProcessed: false, ledgerCutover: expect.objectContaining({ mergedInto: canonical._id }),
@@ -82,32 +111,129 @@ describe('Ledger cutover and legacy effects', () => {
       expect(await legacyDoc(usdt._id)).toMatchObject({ availableBalance: 0.3, ledgerBalance: 0.3 });
     });
 
-    it('replays the same request and refuses a second cutover', async () => {
+    it('returns the same record for the same key and refuses a second cutover', async () => {
       const { ownerId } = await givenLegacyMerchant();
       const key = randomUUID();
 
       const first = await post('/migrations/cutover', { ownerId }, key);
+      const queuedReplay = await post('/migrations/cutover', { ownerId }, key);
+      await ctx.queue.drain();
+      const published = ctx.queue.published.length;
       const replay = await post('/migrations/cutover', { ownerId }, key);
       const again = await post('/migrations/cutover', { ownerId });
 
-      expect(replay.body.data.operationId).toBe(first.body.data.operationId);
+      expect(queuedReplay.body.data.operationId).toBe(first.body.data.operationId);
+      // The second message found the cutover done and changed nothing.
+      expect(replay.body.data).toMatchObject({ operationId: first.body.data.operationId, status: 'completed', attempts: 1 });
+      expect(ctx.queue.published).toHaveLength(published);
       expect(again.status).toBe(409);
       expect(again.body.data.code).toBe('ALREADY_CUT_OVER');
     });
 
-    it('refuses an owner who already has ledger balances, so nothing is seeded twice', async () => {
-      const { ownerId } = await givenLegacyMerchant();
-      await post('/topups/credit', { topupId: randomUUID(), ownerId, currency: 'NGN', amount: '100' });
+    it('refuses the same key for another owner', async () => {
+      const key = randomUUID();
+      await post('/migrations/cutover', { ownerId: (await givenLegacyMerchant()).ownerId }, key);
 
-      const res = await post('/migrations/cutover', { ownerId });
+      const res = await post('/migrations/cutover', { ownerId: (await givenLegacyMerchant()).ownerId }, key);
 
       expect(res.status).toBe(409);
-      expect(res.body.data.code).toBe('ALREADY_CUT_OVER');
+      expect(res.body.data.code).toBe('IDEMPOTENCY_KEY_REUSE');
+    });
+
+    it('fails the record for an owner who already has ledger balances, so nothing is seeded twice', async () => {
+      const { ownerId } = await givenLegacyMerchant();
+      await post('/topups/credit', { topupId: randomUUID(), ownerId, currency: 'NGN', amount: '100' });
+      const key = randomUUID();
+
+      const res = await post('/migrations/cutover', { ownerId }, key);
+      await ctx.queue.drain();
+
+      expect(res.status).toBe(202);
+      expect((await status(res.body.data.operationId)).body.data).toMatchObject({
+        status: 'failed', attempts: 1, result: null, error: { code: 'ALREADY_CUT_OVER', retryable: false },
+      });
+      // The same request puts a failed cutover back in line.
+      const retry = await post('/migrations/cutover', { ownerId }, key);
+      expect(retry.body.data).toMatchObject({ operationId: res.body.data.operationId, status: 'pending', error: null });
+      await ctx.queue.drain();
+      expect((await status(res.body.data.operationId)).body.data).toMatchObject({ status: 'failed', attempts: 2 });
+    });
+
+    it('rejects an owner with no legacy wallets without queueing anything', async () => {
+      const published = ctx.queue.published.length;
+
+      const res = await post('/migrations/cutover', { ownerId: new Types.ObjectId().toHexString() });
+
+      expect(res.status).toBe(404);
+      expect(ctx.queue.published).toHaveLength(published);
+    });
+
+    it('answers 503 when the queue is down, and the same request queues it once it is back', async () => {
+      const { ownerId, canonical } = await givenLegacyMerchant();
+      const key = randomUUID();
+      jest.spyOn(ctx.queue, 'publish').mockRejectedValueOnce(AppError.queueUnavailable('connection refused'));
+
+      const down = await post('/migrations/cutover', { ownerId }, key);
+      const retry = await post('/migrations/cutover', { ownerId }, key);
+      await ctx.queue.drain();
+
+      expect(down.status).toBe(503);
+      expect(down.body.data).toMatchObject({ code: 'SERVICE_UNAVAILABLE', retryable: true });
+      expect(retry.status).toBe(202);
+      expect((await status(retry.body.data.operationId)).body.data.status).toBe('completed');
+      expect(await legacyDoc(canonical._id)).toMatchObject({ ledgerCutover: expect.objectContaining({ operationId: retry.body.data.operationId }) });
+    });
+
+    it('hands a retryable failure back to the queue, and fails the record only on the last attempt', async () => {
+      const { ownerId } = await givenLegacyMerchant();
+      const ledger = ctx.app.get(LedgerService);
+      const key = randomUUID();
+      const { body } = await post('/migrations/cutover', { ownerId }, key);
+      jest.spyOn(ledger, 'post').mockRejectedValueOnce(AppError.retryExhausted()).mockRejectedValueOnce(new Error('socket hang up'));
+
+      await expect(ctx.queue.drain({ retries: 0, lastAttempt: false })).rejects.toMatchObject({ code: 'CONCURRENCY_RETRY_EXHAUSTED' });
+      expect((await status(body.data.operationId)).body.data).toMatchObject({ status: 'processing', attempts: 1, error: null });
+
+      await post('/migrations/cutover', { ownerId }, key);
+      await ctx.queue.drain();
+      expect((await status(body.data.operationId)).body.data).toMatchObject({
+        status: 'failed', attempts: 2, error: { code: 'INTERNAL_ERROR', message: 'socket hang up', retryable: true },
+      });
+
+      await post('/migrations/cutover', { ownerId }, key);
+      await ctx.queue.drain();
+      expect((await status(body.data.operationId)).body.data).toMatchObject({ status: 'completed', attempts: 3, error: null });
+    });
+
+    it('skips messages with no pending cutover behind them', async () => {
+      const { ownerId } = await givenLegacyMerchant();
+      const { body } = await post('/migrations/cutover', { ownerId });
+      await ctx.queue.drain();
+
+      for (const message of [{ operationId: body.data.operationId }, { operationId: 'not-an-id' }, { operationId: new Types.ObjectId().toHexString() }, {}, null]) {
+        await ctx.queue.publish(QueueName.LedgerCutover, message);
+      }
+      await ctx.queue.drain();
+
+      expect((await status(body.data.operationId)).body.data).toMatchObject({ status: 'completed', attempts: 1 });
+    });
+
+    it('serves the status only to the tenant that queued it', async () => {
+      const { ownerId } = await givenLegacyMerchant();
+      const { body } = await post('/migrations/cutover', { ownerId });
+
+      const otherTenant = await request(ctx.app.getHttpServer())
+        .get(`/migrations/cutover/${body.data.operationId}`).set('x-api-key', TEST_API_KEY).set('x-tenant-id', 'someone-else');
+
+      expect(otherTenant.status).toBe(404);
+      expect((await status(new Types.ObjectId().toHexString())).status).toBe(404);
+      expect((await status('not-an-id')).status).toBe(404);
     });
 
     it('keeps a wallet created after cutover up to date when it is flagged isLedgerProcessed', async () => {
       const { ownerId } = await givenLegacyMerchant();
       await post('/migrations/cutover', { ownerId });
+      await ctx.queue.drain();
       // Back-end creates these after cutover: no ledgerCutover, one flagged and one not.
       const merchantId = new Types.ObjectId(ownerId);
       const blank = { availableBalance: 0, ledgerBalance: 0, lienBalance: 0, refundsOrChargeBackBalance: 0, rollingReserveOverdraftBalance: 0 };
@@ -124,10 +250,6 @@ describe('Ledger cutover and legacy effects', () => {
       expect(await legacyDoc(usdPayout._id)).toMatchObject({ availableBalance: 0, ledgerBalance: 0 });
     });
 
-    it('rejects an owner with no legacy wallets', async () => {
-      const res = await post('/migrations/cutover', { ownerId: new Types.ObjectId().toHexString() });
-      expect(res.status).toBe(404);
-    });
   });
 
   describe('after cutover: native endpoints, transactions created before it applied as legacy would', () => {
@@ -138,6 +260,7 @@ describe('Ledger cutover and legacy effects', () => {
     const cutOverMerchant = async () => {
       const merchant = await givenLegacyMerchant();
       await post('/migrations/cutover', { ownerId: merchant.ownerId });
+      await ctx.queue.drain();
       return merchant;
     };
     const payoutStatus = (ownerId: string, payoutId: string, status: string, amount = '40000') =>

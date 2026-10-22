@@ -28,7 +28,7 @@ npx jest test/e2e/refunds.e2e-spec.ts -t "fee"
 - Jest transforms with `@swc/jest`, including files under `node_modules`, because Nest 12 is ESM-only (`transformIgnorePatterns: []`). Keep this setting when you change the Jest config.
 - E2E tests: `test/global-setup.ts` starts a `MongoMemoryReplSet` and exports `TEST_MONGO_PATH`. `test/utils/app.ts#createTestApp()` boots the full `AppModule` against a fresh random database with API key `test-key`, and accepts provider overrides.
 
-Env vars (`src/config/index.ts`): `MONGO_PATH`, `DB_NAME`, `API_KEYS` (comma-separated), `DEFAULT_TENANT_ID`, `HTTP_PORT`, `SERVER_ENV`. Reconciliation: `RECONCILIATION_ENABLED` (`true` to run the daily scheduler in this process), `RECONCILIATION_RUN_AT` (default `02:00`), `RECONCILIATION_TIMEZONE` (default `Africa/Lagos`), `RECONCILIATION_POLL_INTERVAL_MS` (default 5 min). Alerts: `ENABLE_SLACK_NOTIFICATIONS` (`true` to send), `SLACK_LEDGER_INTEGRITY_WEBHOOK_URL`. Pushing to `dev` or `qa` builds the Docker image and pushes it to ECR (`.github/workflows/release.yml`).
+Env vars (`src/config/index.ts`): `MONGO_PATH`, `DB_NAME`, `API_KEYS` (comma-separated), `DEFAULT_TENANT_ID`, `HTTP_PORT`, `SERVER_ENV`. Reconciliation: `RECONCILIATION_ENABLED` (`true` to run the daily scheduler in this process), `RECONCILIATION_RUN_AT` (default `02:00`), `RECONCILIATION_TIMEZONE` (default `Africa/Lagos`), `RECONCILIATION_POLL_INTERVAL_MS` (default 5 min). Alerts: `ENABLE_SLACK_NOTIFICATIONS` (`true` to send), `SLACK_LEDGER_INTEGRITY_WEBHOOK_URL`. Queue: `RABBITMQ_URL` (empty means queued requests get a 503 and no consumer starts), `RABBITMQ_QUEUE_TYPE` (default `quorum`, as in back-end). Pushing to `dev` or `qa` builds the Docker image and pushes it to ECR (`.github/workflows/release.yml`).
 
 ## Architecture
 
@@ -71,6 +71,11 @@ The ledger checks its own integrity once a day, and on demand via `POST /reconci
 - `AlertService` turns findings into Slack pages on state transitions (page → reminder → resolved, keyed e.g. `recon:mismatch:<tenant>:<accountId>`) and keeps undelivered alerts pending until a send succeeds. Slack sits behind `LEDGER_ALERT_NOTIFIER`, and time behind `CLOCK` (`src/common/clock.ts`). e2e tests override both (`test/utils/recording-notifier.ts`, `test/utils/fake-clock.ts`).
 - Runs, findings and alerts are kept forever. `GET /reports/trial-balance`, `/reports/system-positions` and `/reports/reconciliation[/:runId]` are tenant-scoped: a full run spans all tenants, so its trial balance and findings are filtered to the caller.
 - `test/e2e/ledger-integrity-property.e2e-spec.ts` is a fast-check property over random interleaved flow lifecycles. Raise its budget with `FC_NUM_RUNS`.
+
+### Queue (`src/queue/`) and cutover (`src/migrations/`)
+- `MESSAGE_QUEUE` (`MessageQueue`) is RabbitMQ (`RabbitMqQueue`), laid out like back-end's queues: durable, each dead-lettering to `<queue>.dlq`. Publishing waits for the broker's confirm. A failing handler is retried through a republish with `x-retry-count` (1s/2s/4s), and is dead-lettered after `MAX_RETRIES`. Handlers get `{ retries, lastAttempt }`. Consumers run in this process and re-attach after a reconnect.
+- `POST /migrations/cutover` creates a `migrations` record (its `_id` is the ledger `operationId`), queues it on `QueueName.LedgerCutover`, and answers 202 `pending`. `CutoverConsumer` → `CutoverService.process()` runs the ledger post with that operationId and the request's idempotency key, then marks the record `completed` with the result, or `failed` with the error. A retryable error is thrown back to the queue until the last attempt. `GET /migrations/cutover/:operationId` reads the record. The same key returns the same record, and queues it again unless it completed.
+- e2e tests replace the queue with `test/utils/in-memory-queue.ts`. Nothing is processed until the test calls `ctx.queue.drain()`.
 
 ### Other pieces
 - `CurrencyRegistryService`: services call `currencies.require(code)` before posting. The registry stores each currency's minor-unit scale, and NGN is seeded at startup.

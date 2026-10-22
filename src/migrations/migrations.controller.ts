@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post } from "@nestjs/common";
 import { TenantId } from "../common/tenant.decorator";
 import { IdempotencyKey } from "../common/idempotency-key.decorator";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
@@ -19,12 +19,19 @@ export class MigrationsController {
   }
 
   @Post('cutover')
-  @ResponseMessage('Owner cut over to the ledger')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ResponseMessage('Migration cutover queued')
   async cutover(
     @TenantId() tenantId: string,
     @IdempotencyKey() idempotencyKey: string,
     @Body(new ZodValidationPipe(cutoverSchema)) body: CutoverDto,
   ) {
-    return await this.cutovers.cutover(tenantId, idempotencyKey, body.ownerId);
+    return await this.cutovers.request(tenantId, idempotencyKey, body.ownerId);
+  }
+
+  @Get('cutover/:operationId')
+  @ResponseMessage('Cutover status')
+  async status(@TenantId() tenantId: string, @Param('operationId') operationId: string) {
+    return await this.cutovers.get(tenantId, operationId);
   }
 }

@@ -436,6 +436,11 @@ export class AppError extends Error {
     return new AppError(ErrorCode.LEGACY_WALLET_UPDATE_FAILED, HttpStatus.INTERNAL_SERVER_ERROR, message, false, details)
   }
 
+  /** The message broker refused or could not be reached; nothing was queued. */
+  static queueUnavailable(reason: string): AppError {
+    return new AppError(ErrorCode.SERVICE_UNAVAILABLE, HttpStatus.SERVICE_UNAVAILABLE, 'The message queue is unavailable; retry the request', true, { reason })
+  }
+
   static retryExhausted(): AppError {
     return new AppError(
       ErrorCode.CONCURRENCY_RETRY_EXHAUSTED,
