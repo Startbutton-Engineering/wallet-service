@@ -5,6 +5,7 @@ import { Entry, EntrySchema } from '../../../src/ledger/schemas/entry.schema';
 import { Idempotency, IdempotencySchema } from '../../../src/ledger/schemas/idempotency.schema';
 import { Outbox, OutboxSchema } from '../../../src/ledger/schemas/outbox.schema';
 import { Posting, PostingSchema } from '../../../src/ledger/schemas/posting.schema';
+import { Migration, MigrationSchema } from '../../../src/migrations/migration.schema';
 
 /** The index definitions a schema declares, as plain field-order objects. */
 const indexes = (schema: Schema) => schema.indexes().map(([fields]) => fields);
@@ -30,6 +31,7 @@ describe('mongo schemas', () => {
     ['Idempotency', Idempotency, IdempotencySchema, 'idempotency'],
     ['Outbox', Outbox, OutboxSchema, 'outbox'],
     ['Posting', Posting, PostingSchema, 'postings'],
+    ['Migration', Migration, MigrationSchema, 'migrations'],
   ] as [string, unknown, Schema, string][])(
     '%s maps to the %s collection with mongoose versioning off',
     (_name, _cls, schema, collection) => {
@@ -199,6 +201,24 @@ describe('mongo schemas', () => {
     it('keys currencies uniquely by code', () => {
       expect(CurrencySchema.path('code').options.unique).toBe(true);
       expect(CurrencySchema.path('scale').instance).toBe('Number');
+    });
+  });
+
+  describe('MigrationSchema', () => {
+    it('makes the idempotency key unique per tenant and indexes an owner\'s history', () => {
+      const [byKey, byOwner] = indexSpecs(MigrationSchema);
+      expect(byKey.fields).toEqual({ tenantId: 1, idempotencyKey: 1 });
+      expect(byKey.options).toMatchObject({ unique: true });
+      expect(byOwner.fields).toEqual({ tenantId: 1, ownerId: 1, createdAt: -1 });
+    });
+
+    it('uses the operationId as _id and starts with no outcome', () => {
+      expect(MigrationSchema.path('_id').instance).toBe('ObjectId');
+      expect(defaultOf(MigrationSchema, 'attempts')).toBe(0);
+      expect(defaultOf(MigrationSchema, 'result')).toBeNull();
+      expect(defaultOf(MigrationSchema, 'error')).toBeNull();
+      expect(defaultOf(MigrationSchema, 'startedAt')).toBeNull();
+      expect(defaultOf(MigrationSchema, 'finishedAt')).toBeNull();
     });
   });
 });

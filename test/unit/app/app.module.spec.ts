@@ -31,6 +31,11 @@ import { LiensModule } from '../../../src/liens/liens.module';
 import { MigrationsModule } from '../../../src/migrations/migrations.module';
 import { CutoverService } from '../../../src/migrations/cutover.service';
 import { MigrationsController } from '../../../src/migrations/migrations.controller';
+import { MigrationsRepository } from '../../../src/migrations/migrations.repository';
+import { CutoverConsumer } from '../../../src/migrations/cutover.consumer';
+import { QueueModule } from '../../../src/queue/queue.module';
+import { MESSAGE_QUEUE } from '../../../src/queue/message-queue';
+import { RabbitMqQueue } from '../../../src/queue/rabbitmq.queue';
 import { LegacyWalletsService } from '../../../src/ledger/legacy-wallets.service';
 import { LegacyRouteService } from '../../../src/ledger/legacy-route.service';
 import { LiensService } from '../../../src/liens/liens.service';
@@ -63,6 +68,7 @@ describe('AppModule', () => {
   it('wires every feature module', () => {
     expect(meta(AppModule, 'imports')).toEqual([
       DatabaseModule,
+      QueueModule,
       CurrencyModule,
       AccountsModule,
       LedgerModule,
@@ -116,7 +122,8 @@ describe('feature modules', () => {
     ['ConversionsModule', ConversionsModule, [ConversionsService], [ConversionsController]],
     ['SettlementsModule', SettlementsModule, [SettlementsService], [SettlementsController]],
     ['EntriesModule', EntriesModule, [EntriesService], [EntriesController]],
-    ['MigrationsModule', MigrationsModule, [CutoverService], [MigrationsController]],
+    ['MigrationsModule', MigrationsModule, [CutoverService, MigrationsRepository, CutoverConsumer], [MigrationsController]],
+    ['QueueModule', QueueModule, [{ provide: MESSAGE_QUEUE, useClass: RabbitMqQueue }], []],
   ] as [string, unknown, unknown[], unknown[]][])(
     '%s declares its providers and controllers',
     (_name, module, providers, controllers) => {
@@ -142,6 +149,7 @@ describe('feature modules', () => {
     ['AccountsModule', AccountsModule],
     ['LedgerModule', LedgerModule],
     ['CurrencyModule', CurrencyModule],
+    ['QueueModule', QueueModule],
   ] as [string, unknown][])('%s is global, so its providers need no re-import', (_name, module) => {
     expect(meta(module, '__module:global__')).toBe(true);
   });

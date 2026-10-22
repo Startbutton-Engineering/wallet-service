@@ -1,11 +1,15 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 import { ClientSession, Types } from "mongoose";
 import { LedgerService } from "../ledger/ledger.service";
 import { CurrencyRegistryService } from "../currency/currency-registry.service";
 import { accountsFromLegacy, LegacyWalletFields, LegacyWalletsService } from "../ledger/legacy-wallets.service";
 import { accountRef, System, UserAccountTpe, WalletType } from "../accounts/account";
 import { EntryI, OutboxEventType } from "../ledger/types";
-import { AppError } from "../common/errors";
+import { AppError, ErrorCode } from "../common/errors";
+import { Delivery, MESSAGE_QUEUE, QueueName } from "../queue/message-queue";
+import type { MessageQueue } from "../queue/message-queue";
+import { MigrationsRepository } from "./migrations.repository";
+import type { MigrationDoc, MigrationError } from "./migration.schema";
 
 export const CUTOVER_OPERATION = 'migration.cutover';
 
@@ -40,31 +44,104 @@ export interface CutoverResult {
   wallets: ReturnType<typeof toJson>[];
 }
 
-/**
- * Moves an owner's legacy wallets onto the ledger exactly as they are, and marks the legacy
- * documents `ledgerCutover` in the same transaction; from then on every post updates them. A legacy
- * write racing the cutover touches the same documents, so one of the two transactions hits a write
- * conflict and retries: the snapshot is exact without a freeze.
- */
+export interface CutoverMessage {
+  operationId: string;
+}
+
+export const toMigrationView = (m: MigrationDoc) => ({
+  operationId: m._id.toHexString(),
+  ownerId: m.ownerId,
+  status: m.status,
+  attempts: m.attempts,
+  result: m.result,
+  error: m.error,
+  createdAt: m.createdAt.toISOString(),
+  startedAt: m.startedAt?.toISOString() ?? null,
+  finishedAt: m.finishedAt?.toISOString() ?? null,
+});
+
+export type CutoverMigrationView = ReturnType<typeof toMigrationView>;
+
 @Injectable()
 export class CutoverService {
+  private readonly logger = new Logger(CutoverService.name);
+
   constructor(
     private readonly ledgerService: LedgerService,
     private readonly currencies: CurrencyRegistryService,
     private readonly legacyWallets: LegacyWalletsService,
+    private readonly migrations: MigrationsRepository,
+    @Inject(MESSAGE_QUEUE) private readonly queue: MessageQueue,
   ) {}
 
-  /** The balances a cutover would set, without writing anything. */
   async preview(ownerId: string) {
     const wallets = await this.readLegacyWallets(ownerId);
     return { ownerId, alreadyCutOver: await this.legacyWallets.isCutOver(ownerId), wallets: wallets.map(toJson) };
   }
 
-  async cutover(tenantId: string, idempotencyKey: string, ownerId: string): Promise<CutoverResult> {
+  async request(tenantId: string, idempotencyKey: string, ownerId: string): Promise<CutoverMigrationView> {
+    const existing = await this.migrations.findByKey(tenantId, idempotencyKey);
+    if (existing) return this.resume(existing, ownerId);
+
+    if (await this.legacyWallets.isCutOver(ownerId)) throw AppError.alreadyCutOver(ownerId);
+    await this.readLegacyWallets(ownerId);
+
+    const created = await this.migrations.create(tenantId, idempotencyKey, ownerId);
+    if (!created) return this.resume((await this.migrations.findByKey(tenantId, idempotencyKey))!, ownerId);
+    await this.enqueue(created);
+    return toMigrationView(created);
+  }
+
+  async get(tenantId: string, operationId: string): Promise<CutoverMigrationView> {
+    const migration = await this.migrations.get(operationId, tenantId);
+    if (!migration) throw AppError.notFound('No cutover with this operationId', { operationId });
+    return toMigrationView(migration);
+  }
+
+  async process(message: unknown, delivery: Delivery): Promise<void> {
+    const operationId = (message as Partial<CutoverMessage> | null)?.operationId;
+    const migration = typeof operationId === 'string' && Types.ObjectId.isValid(operationId)
+      ? await this.migrations.markProcessing(new Types.ObjectId(operationId))
+      : null;
+    if (!migration) {
+      this.logger.warn(`Skipping cutover message ${JSON.stringify(message)}: no pending cutover`);
+      return;
+    }
+
+    let result: CutoverResult;
+    try {
+      result = await this.cutover(migration);
+    } catch (err) {
+      const error = describeError(err);
+      if (error.retryable && !delivery.lastAttempt) throw err;
+      this.logger.error(`Cutover ${operationId} for ${migration.ownerId} failed: ${error.code} ${error.message}`);
+      await this.migrations.markFailed(migration._id, error);
+      return;
+    }
+    await this.migrations.markCompleted(migration._id, result);
+    this.logger.log(`Cutover ${operationId} for ${migration.ownerId} completed`);
+  }
+
+  private async resume(migration: MigrationDoc, ownerId: string): Promise<CutoverMigrationView> {
+    if (migration.ownerId !== ownerId) throw AppError.IdempotencyKeyReuse(migration.idempotencyKey);
+    if (migration.status === 'completed') return toMigrationView(migration);
+    const queued = (await this.migrations.requeue(migration._id)) ?? migration;
+    await this.enqueue(queued);
+    return toMigrationView(queued);
+  }
+
+  private async enqueue(migration: MigrationDoc): Promise<void> {
+    const message: CutoverMessage = { operationId: migration._id.toHexString() };
+    await this.queue.publish(QueueName.LedgerCutover, message);
+  }
+
+  private async cutover(migration: MigrationDoc): Promise<CutoverResult> {
+    const { tenantId, idempotencyKey, ownerId } = migration;
     const reference = `migration:${ownerId}`;
     return this.ledgerService.post<CutoverResult>({
       tenantId,
       idempotencyKey,
+      operationId: migration._id.toHexString(),
       operationType: CUTOVER_OPERATION,
       requestPayload: { ownerId },
       reference,
@@ -139,6 +216,13 @@ export class CutoverService {
       );
     }
   }
+}
+
+function describeError(err: unknown): MigrationError {
+  if (err instanceof AppError) {
+    return { code: err.code, message: err.message, retryable: err.retryable, ...(err.details ? { details: err.details } : {}) };
+  }
+  return { code: ErrorCode.INTERNAL_ERROR, message: err instanceof Error ? err.message : String(err), retryable: true };
 }
 
 export function seedEntries(ownerId: string, wallet: CutoverWallet, reference: string): EntryI[] {

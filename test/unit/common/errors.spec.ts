@@ -30,11 +30,19 @@ describe('AppError', () => {
     expect(new AppError(ErrorCode.INTERNAL_ERROR, 500, 'boom').retryable).toBe(false);
   });
 
-  it('marks only retry-exhaustion as retryable', () => {
+  it('marks retry-exhaustion as retryable', () => {
     const err = AppError.retryExhausted();
     expect(err.code).toBe(ErrorCode.CONCURRENCY_RETRY_EXHAUSTED);
     expect(err.httpStatus).toBe(HttpStatus.SERVICE_UNAVAILABLE);
     expect(err.retryable).toBe(true);
+  });
+
+  it('reports an unreachable message queue as a retryable 503 with the reason', () => {
+    const err = AppError.queueUnavailable('connection refused');
+    expect(err.code).toBe(ErrorCode.SERVICE_UNAVAILABLE);
+    expect(err.httpStatus).toBe(HttpStatus.SERVICE_UNAVAILABLE);
+    expect(err.retryable).toBe(true);
+    expect(err.details).toEqual({ reason: 'connection refused' });
   });
 
   it('uses a default message for unauthenticated and allows overriding it', () => {

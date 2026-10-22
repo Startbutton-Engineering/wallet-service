@@ -116,7 +116,8 @@ describe('Liens', () => {
       _id: walletId, merchantId, type: 'payout', currency: 'NGN', createdAt: new Date('2025-01-01'),
       availableBalance: 1000, ledgerBalance: 1000, lienBalance: 300, refundsOrChargeBackBalance: 0, rollingReserveOverdraftBalance: 0,
     });
-    expect((await post('/migrations/cutover', { ownerId })).status).toBe(201);
+    expect((await post('/migrations/cutover', { ownerId })).status).toBe(202);
+    await ctx.queue.drain();
 
     const res = await lien('place', ownerId, '50000');
 

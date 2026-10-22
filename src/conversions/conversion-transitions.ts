@@ -40,6 +40,9 @@ export interface ConversionPlan {
   settledToDebit?: bigint;
 }
 
+const heldOutflow = (ownerId: string, currency: string, walletType: WalletType): AccountRef =>
+  accountRef.user(ownerId, currency, walletType, 'held-outflow');
+
 const heldInflow = (ownerId: string, currency: string, walletType: WalletType): AccountRef =>
   accountRef.user(ownerId, currency, walletType, 'held-inflow');
 
@@ -56,7 +59,7 @@ async function initiatedAmounts(
   toCurrency: string,
   walletType: WalletType,
 ): Promise<{ from: bigint; to: bigint }> {
-  const from = await ctx.referenceNetAmount(conversionId, heldInflow(ownerId, fromCurrency, walletType), [ConversionOperation.initiate]);
+  const from = await ctx.referenceNetAmount(conversionId, heldOutflow(ownerId, fromCurrency, walletType), [ConversionOperation.initiate]);
   const to = await ctx.referenceNetAmount(conversionId, heldInflow(ownerId, toCurrency, walletType), [ConversionOperation.initiate]);
   return { from, to };
 }
@@ -72,7 +75,7 @@ async function requirePending(
   const { from, to } = await initiatedAmounts(ctx, conversionId, ownerId, fromCurrency, toCurrency, walletType);
   if (from === 0n) throw AppError.conversionNotInitiated(conversionId);
 
-  const outstanding = await ctx.referenceNetAmount(conversionId, heldInflow(ownerId, fromCurrency, walletType));
+  const outstanding = await ctx.referenceNetAmount(conversionId, heldOutflow(ownerId, fromCurrency, walletType));
   if (outstanding === 0n) {
     throw AppError.conversionAlreadyResolved({ conversionId, fromAmount: from.toString() });
   }
@@ -90,7 +93,7 @@ export async function planInitiate(
   }
 
   const already = await ctx.referenceNetAmount(
-    p.conversionId, heldInflow(p.ownerId, p.fromCurrency, p.walletType), [ConversionOperation.initiate],
+    p.conversionId, heldOutflow(p.ownerId, p.fromCurrency, p.walletType), [ConversionOperation.initiate],
   );
   if (already !== 0n) throw AppError.conversionAlreadyInitiated(p.conversionId);
   const toAmount = convertMinorUnits(p.fromAmount, p.fromScale, p.toScale, p.rate);
@@ -121,7 +124,7 @@ export async function planInitiate(
           metadata,
           postings: [
             { account: available(p.ownerId, p.fromCurrency, p.walletType), direction: 'debit', amount: p.fromAmount },
-            { account: heldInflow(p.ownerId, p.fromCurrency, p.walletType), direction: 'credit', amount: p.fromAmount },
+            { account: heldOutflow(p.ownerId, p.fromCurrency, p.walletType), direction: 'credit', amount: p.fromAmount },
           ],
         },
         {
@@ -153,7 +156,7 @@ async function planApprove(ctx: PrePostContext, p: ResolveParams): Promise<Conve
       {
         currency: p.fromCurrency,
         postings: [
-          { account: heldInflow(p.ownerId, p.fromCurrency, p.walletType), direction: 'debit', amount: fromAmount },
+          { account: heldOutflow(p.ownerId, p.fromCurrency, p.walletType), direction: 'debit', amount: fromAmount },
           { account: fx(p.fromCurrency), direction: 'credit', amount: fromAmount },
         ],
       },
@@ -165,7 +168,7 @@ async function planApprove(ctx: PrePostContext, p: ResolveParams): Promise<Conve
         ],
       },
     ],
-    guardNegative: [heldInflow(p.ownerId, p.fromCurrency, p.walletType), heldInflow(p.ownerId, p.toCurrency, p.walletType)],
+    guardNegative: [heldOutflow(p.ownerId, p.fromCurrency, p.walletType), heldInflow(p.ownerId, p.toCurrency, p.walletType)],
     settledToDebit: settled,
   };
 }
@@ -177,7 +180,7 @@ async function planReject(ctx: PrePostContext, p: ResolveParams): Promise<Conver
       {
         currency: p.fromCurrency,
         postings: [
-          { account: heldInflow(p.ownerId, p.fromCurrency, p.walletType), direction: 'debit', amount: fromAmount },
+          { account: heldOutflow(p.ownerId, p.fromCurrency, p.walletType), direction: 'debit', amount: fromAmount },
           { account: available(p.ownerId, p.fromCurrency, p.walletType), direction: 'credit', amount: fromAmount },
         ],
       },
@@ -189,7 +192,7 @@ async function planReject(ctx: PrePostContext, p: ResolveParams): Promise<Conver
         ],
       },
     ],
-    guardNegative: [heldInflow(p.ownerId, p.fromCurrency, p.walletType), heldInflow(p.ownerId, p.toCurrency, p.walletType)],
+    guardNegative: [heldOutflow(p.ownerId, p.fromCurrency, p.walletType), heldInflow(p.ownerId, p.toCurrency, p.walletType)],
   };
 }
 

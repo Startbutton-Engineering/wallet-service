@@ -116,7 +116,7 @@ describe('conversion transitions', () => {
   });
 
   describe('postings', () => {
-    it('initiate moves fromCurrency available into held-inflow and fronts toCurrency held-inflow from the fx desk', async () => {
+    it('initiate moves fromCurrency available into held-outflow and fronts toCurrency held-inflow from the fx desk', async () => {
       const { plan, toAmount } = await ledger.planInitiateOnly();
       expect(toAmount).toBe(100n); // ₦1500.00 at $0.000666667/₦1 -> $1.0000005 -> $1.00
 
@@ -124,7 +124,7 @@ describe('conversion transitions', () => {
       expect(plan.entries[0].currency).toBe('NGN');
       expect(plan.entries[0].postings.map((p) => [accountId(p.account), p.direction, p.amount])).toEqual([
         [refKey(accountRef.collectionWallet('m1', 'NGN', 'available')), 'debit', 150_000n],
-        [refKey(accountRef.collectionWallet('m1', 'NGN', 'held-inflow')), 'credit', 150_000n],
+        [refKey(accountRef.collectionWallet('m1', 'NGN', 'held-outflow')), 'credit', 150_000n],
       ]);
       expect(plan.entries[1].currency).toBe('USD');
       expect(plan.entries[1].postings.map((p) => [accountId(p.account), p.direction, p.amount])).toEqual([
@@ -157,7 +157,7 @@ describe('conversion transitions', () => {
       expect(plan.entries[0].currency).toBe('USD');
       expect(plan.entries[0].postings.map((p) => [accountId(p.account), p.direction])).toEqual([
         [refKey(accountRef.collectionWallet('m1', 'USD', 'available')), 'debit'],
-        [refKey(accountRef.collectionWallet('m1', 'USD', 'held-inflow')), 'credit'],
+        [refKey(accountRef.collectionWallet('m1', 'USD', 'held-outflow')), 'credit'],
       ]);
       expect(plan.entries[1].currency).toBe('GBP');
       expect(plan.entries[1].postings.map((p) => [accountId(p.account), p.direction])).toEqual([
@@ -171,7 +171,7 @@ describe('conversion transitions', () => {
       const plan = await ledger.planOnly('approved');
 
       expect(plan.entries[0].postings.map((p) => [accountId(p.account), p.direction, p.amount])).toEqual([
-        [refKey(accountRef.collectionWallet('m1', 'NGN', 'held-inflow')), 'debit', 150_000n],
+        [refKey(accountRef.collectionWallet('m1', 'NGN', 'held-outflow')), 'debit', 150_000n],
         [refKey(accountRef.system('fx:NGN', 'NGN')), 'credit', 150_000n],
       ]);
       expect(plan.entries[1].postings.map((p) => [accountId(p.account), p.direction, p.amount])).toEqual([
@@ -179,7 +179,7 @@ describe('conversion transitions', () => {
         [refKey(accountRef.collectionWallet('m1', 'USD', 'available')), 'credit', 100n],
       ]);
       expect(plan.guardNegative.map(accountId)).toEqual([
-        refKey(accountRef.collectionWallet('m1', 'NGN', 'held-inflow')),
+        refKey(accountRef.collectionWallet('m1', 'NGN', 'held-outflow')),
         refKey(accountRef.collectionWallet('m1', 'USD', 'held-inflow')),
       ]);
     });
@@ -216,7 +216,7 @@ describe('conversion transitions', () => {
       const plan = await ledger.planOnly('rejected');
 
       expect(plan.entries[0].postings.map((p) => [accountId(p.account), p.direction, p.amount])).toEqual([
-        [refKey(accountRef.collectionWallet('m1', 'NGN', 'held-inflow')), 'debit', 150_000n],
+        [refKey(accountRef.collectionWallet('m1', 'NGN', 'held-outflow')), 'debit', 150_000n],
         [refKey(accountRef.collectionWallet('m1', 'NGN', 'available')), 'credit', 150_000n],
       ]);
       expect(plan.entries[1].postings.map((p) => [accountId(p.account), p.direction, p.amount])).toEqual([
@@ -253,7 +253,7 @@ describe('conversion transitions', () => {
 
       expect(plan.entries[0].postings.map((p) => accountId(p.account))).toEqual([
         refKey(accountRef.payoutWallet('m1', 'NGN', 'available')),
-        refKey(accountRef.payoutWallet('m1', 'NGN', 'held-inflow')),
+        refKey(accountRef.payoutWallet('m1', 'NGN', 'held-outflow')),
       ]);
       expect(plan.entries[1].postings.map((p) => accountId(p.account))).toEqual([
         refKey(accountRef.system('fx:USD', 'USD')),
@@ -268,7 +268,7 @@ describe('conversion transitions', () => {
       const plan = await ledger.planOnly('approved', resolveParams);
 
       expect(plan.entries[0].postings.map((p) => accountId(p.account))).toEqual([
-        refKey(accountRef.payoutWallet('m1', 'NGN', 'held-inflow')),
+        refKey(accountRef.payoutWallet('m1', 'NGN', 'held-outflow')),
         refKey(accountRef.system('fx:NGN', 'NGN')),
       ]);
       expect(plan.entries[1].postings.map((p) => accountId(p.account))).toEqual([
