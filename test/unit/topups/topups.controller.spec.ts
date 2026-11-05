@@ -30,6 +30,12 @@ describe('TopupsController', () => {
     expect(service.credit).toHaveBeenCalledWith(expect.objectContaining({ amount: 9007199254740993n }));
   });
 
+  it('passes a negative amount through as a negative bigint', async () => {
+    await controller.credit(TENANT, 'key-1', { ...body, amount: '-1000' });
+
+    expect(service.credit).toHaveBeenCalledWith(expect.objectContaining({ amount: -1000n }));
+  });
+
   it('declares its response message', () => {
     expect(Reflect.getMetadata(RESPONSE_MESSAGE_KEY, TopupsController.prototype.credit)).toBe('Topup credited');
   });

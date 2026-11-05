@@ -37,6 +37,9 @@ export class TopupsService {
     const { tenantId, idempotencyKey, topupId, ownerId, currency, amount } = params;
     await this.currencies.require(currency);
     const available = accountRef.payoutWallet(ownerId, currency, 'available');
+    const collection = accountRef.systemCollection(currency);
+    const isNetDebit = amount < 0n;
+    const magnitude = isNetDebit ? -amount : amount;
 
     return this.ledgerService.post<TopupResult>({
       tenantId,
@@ -51,12 +54,17 @@ export class TopupsService {
         return {
           entries: [{
             currency,
-            postings: [
-              { account: accountRef.systemCollection(currency), direction: 'debit', amount },
-              { account: available, direction: 'credit', amount },
-            ],
+            postings: isNetDebit
+              ? [
+                  { account: available, direction: 'debit', amount: magnitude },
+                  { account: collection, direction: 'credit', amount: magnitude },
+                ]
+              : [
+                  { account: collection, direction: 'debit', amount: magnitude },
+                  { account: available, direction: 'credit', amount: magnitude },
+                ],
           }],
-          guardNegative: [],
+          guardNegative: isNetDebit ? [available] : [],
           buildResponse: async (post) => ({
             operationId: post.operationId,
             entryId: post.entryIds[0],
