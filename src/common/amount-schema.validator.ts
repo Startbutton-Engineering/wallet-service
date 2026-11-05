@@ -10,3 +10,12 @@ export const amountString = z
     abort: true,
   })
   .refine((s) => BigInt(s) > 0n, 'amount must be positive')
+
+/** For the few operations whose net amount can go either way, such as a topup whose fee exceeds it. */
+export const signedAmountString = z
+  .string()
+  .regex(/^-?\d+$/, {
+    error: 'amount must be a non-zero integer string of minor units',
+    abort: true,
+  })
+  .refine((s) => BigInt(s) !== 0n, 'amount must not be zero')
