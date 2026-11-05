@@ -1,4 +1,23 @@
-import { amountString } from '../../../src/common/amount-schema.validator';
+import { amountString, signedAmountString } from '../../../src/common/amount-schema.validator';
+
+describe('signedAmountString', () => {
+  it.each(['1', '-1', '9007199254740993', '-9007199254740993'])('accepts the minor-unit string %s', (value) => {
+    expect(signedAmountString.parse(value)).toBe(value);
+  });
+
+  it.each(['0', '-0', '', ' -1 ', '-1.5', 'abc', '--1', '-'])('rejects %p without throwing', (value) => {
+    expect(() => signedAmountString.safeParse(value)).not.toThrow();
+    expect(signedAmountString.safeParse(value).success).toBe(false);
+  });
+
+  it('explains that a zero amount is not allowed', () => {
+    expect(signedAmountString.safeParse('0').error?.issues[0].message).toBe('amount must not be zero');
+  });
+
+  it('names the format it wants for a malformed amount', () => {
+    expect(signedAmountString.safeParse('abc').error?.issues[0].message).toMatch(/integer string/);
+  });
+});
 
 describe('amountString', () => {
   it.each(['1', '100', '9007199254740993'])('accepts the minor-unit string %s', (value) => {

@@ -64,6 +64,30 @@ describe('TopupsService', () => {
     expect(ledger.lastOperation.guardNegative).toEqual([]);
   });
 
+  it('takes a negative amount from payout available, guarded against overdraft', async () => {
+    await service.credit({ ...base, amount: -1000n });
+
+    expect(legs(ledger.lastOperation.entries[0])).toEqual([
+      ['payout:available', 'debit', 1000n],
+      ['system:external:collection', 'credit', 1000n],
+    ]);
+    expect(ledger.lastOperation.guardNegative).toEqual([
+      expect.objectContaining({ walletType: 'payout', accountType: 'available' }),
+    ]);
+    expect(ledger.lastCall).toMatchObject({
+      operationType: TopupOperation.credit,
+      requestPayload: { amount: '-1000' },
+    });
+  });
+
+  it('rejects a repeat of a negative topup under the same id', async () => {
+    build({ netAmount: () => -1000n });
+
+    await expect(service.credit({ ...base, amount: -1000n, idempotencyKey: 'key-2' })).rejects.toMatchObject({
+      code: ErrorCode.TOPUP_ALREADY_CREDITED,
+    });
+  });
+
   it('rejects a topup already credited under the same id, whatever the idempotency key', async () => {
     build({ netAmount: () => 1000n });
 

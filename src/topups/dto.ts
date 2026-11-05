@@ -1,10 +1,10 @@
 import z from "zod";
-import { amountString } from "../common/amount-schema.validator";
+import { signedAmountString } from "../common/amount-schema.validator";
 
 export const topupSchema = z.object({
   topupId: z.string().min(1),
   ownerId: z.string().min(1),
   currency: z.string().min(1),
-  amount: amountString,
+  amount: signedAmountString,
 })
 export type TopupDto = z.infer<typeof topupSchema>;
